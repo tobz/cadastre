@@ -18,6 +18,15 @@ type Configuration struct {
 
     // The storage engine used to persist the host information to.
     Storage DataStore
+
+    // Where to load templates from.
+    TemplateDirectory string
+
+    // Where to serve static assets from.
+    StaticAssetDirectory string
+
+    // Whether or not we're in debug mode.
+    DebugMode bool
 }
 
 func LoadConfigurationFromFile(configurationFile string) (*Configuration, error) {
@@ -29,7 +38,7 @@ func LoadConfigurationFromFile(configurationFile string) (*Configuration, error)
         return nil, fmt.Errorf("Caught an error while trying to load the configuration! %s", err)
     }
 
-    // Pull out some of the basics.
+    // Get the fetch interval.
     fetchInterval, err := yamlConfig.Get("fetchInterval")
     if err != nil {
         return nil, fmt.Errorf("You must specify a fetch interval!")
@@ -46,10 +55,25 @@ func LoadConfigurationFromFile(configurationFile string) (*Configuration, error)
 
     config.FetchInterval = parsedFetchInterval
 
+    // Get the template directory and the static asset directory.
+    templateDirectory, err := yamlConfig.Get("templateDirectory")
+    if err != nil || templateDirectory == "" {
+        return nil, fmt.Errorf("Template directory must be specified!")
+    }
+
+    config.TemplateDirectory = templateDirectory
+
+    staticAssetDirectory, err := yamlConfig.Get("staticAssetDirectory")
+    if err != nil || staticAssetDirectory == "" {
+        return nil, fmt.Errorf("Static asset directory must be specified!")
+    }
+
+    config.StaticAssetDirectory = staticAssetDirectory
+
     // Set up the specified storage engine.
     storageEngine, err := yamlConfig.Get("storageEngine.name")
     if err != nil {
-        return nil, fmt.Errorf("Storage engine must be specified in the configuration!")
+        return nil, fmt.Errorf("Storage engine must be specified!")
     }
 
     switch storageEngine {

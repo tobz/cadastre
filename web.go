@@ -15,10 +15,10 @@ import "github.com/pmylund/go-cache"
 import "github.com/realistschuckle/gohaml"
 
 type WebUI struct {
+    Configuration *Configuration
+
     server *http.Server
 
-    StaticAssetDirectory string
-    TemplateDirectory string
     templateCache *cache.Cache
     templateWatcher *fsnotify.Watcher
 
@@ -56,7 +56,7 @@ func (me *WebUI) StartListening() (error) {
         }
     }()
 
-    absTemplateDirectory, err := filepath.Abs(me.TemplateDirectory)
+    absTemplateDirectory, err := filepath.Abs(me.Configuration.TemplateDirectory)
     if err != nil {
         return fmt.Errorf("Caught an error trying to get the absolute path to the template directory! %s", err)
     }
@@ -81,12 +81,12 @@ func (me *WebUI) StartListening() (error) {
     requestMultiplexer.Handle("/favicon.ico", CadastreHandler(me, me.serveFavicon))
     requestMultiplexer.Handle("/", CadastreHandler(me, me.serveIndex))
 
-    absStaticAssetPath, err := filepath.Abs(me.StaticAssetDirectory)
+    absStaticAssetPath, err := filepath.Abs(me.Configuration.StaticAssetDirectory)
     if err != nil {
         return fmt.Errorf("Caught an error trying to get the absolute path to the static asset directory! %s", err)
     }
 
-    requestMultiplexer.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(absStaticAssetPath))))
+    requestMultiplexer.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(absStaticAssetPath))))
 
     // Start listening!
     go func() {
@@ -111,7 +111,7 @@ func (me *WebUI) loadTemplate(templatePath string) (string, error) {
     }
 
     // Not in the cache, so we need to go to disk for it.  Build our path.
-    absTemplatePath, err := filepath.Abs(filepath.Join(me.TemplateDirectory, templatePath))
+    absTemplatePath, err := filepath.Abs(filepath.Join(me.Configuration.TemplateDirectory, templatePath))
     if err != nil {
         return "", fmt.Errorf("Error building the proper path to load the template file! %s", err)
     }

@@ -1,0 +1,22 @@
+%html{:lang => "en"}
+  %head
+    %meta{:charset => "utf-8"}/
+    %title Cadastre - MySQL at a glance
+    %link{:href => "/static/css/bootstrap.min.css", :rel => "stylesheet"}/
+    %link{:href => "/static/css/bootstrap-responsive.min.css", :rel => "stylesheet"}/
+  %body
+    .navbar.navbar-inverse.navbar-fixed-top
+      .navbar-inner
+        .container
+          %a.btn.btn-navbar{:data-target => "nav-collapse", :data-toggle => "collapse" }
+            %span.icon-bar
+          %a.brand{:href => "#"} Cadastre
+          .nav-collapse
+            %ul.nav
+              %li.active
+                %a{:href => "#"} Home
+
+    / Just a wee HTML comment.
+    %script{:src => "/static/js/jquery.min.js"}
+    %script{:src => "/static/js/bootstrap.min.js"}
+    %script{:src => "/static/js/json2.min.js"}

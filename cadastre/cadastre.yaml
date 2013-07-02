@@ -1,0 +1,12 @@
+fetchInterval: 10s
+templateDirectory: /tmp
+staticAssetDirectory: /tmp
+storageEngine:
+  name: file
+  dataDirectory: /tmp
+  retentionPeriod: 336h
+servers:
+  - internalName: mySandbox
+    displayName: My Sandbox
+    category: Development
+    dataSourceName: root@tcp(127.0.0.1:3306)/mysql

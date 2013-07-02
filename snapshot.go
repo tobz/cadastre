@@ -12,17 +12,17 @@ import _ "github.com/go-sql-driver/mysql"
 // where, the sttus of the query, the actual query itself, and metadata such as rows sent,
 // examined and read, where applicable.
 type Event struct {
-    EventID uint64
-    TimeElapsed uint64
+    EventID int64
+    TimeElapsed int64
     Host string
     Database string
     User string
     Command string
     Status string
     SQL string
-    RowsSent uint64
-    RowsExamined uint64
-    RowsRead uint64
+    RowsSent int64
+    RowsExamined int64
+    RowsRead int64
 }
 
 // A collection of events that represent a complete point in time view of the MySQL process list.
@@ -64,18 +64,18 @@ func (me *Snapshot) TakeSnapshot(server Server) (error) {
     }
 
     // Make holders for all the values we might get back.
-    var eventId uint64
+    var eventId int64
     var user string
     var host string
     var database sql.NullString
     var command string
-    var timeElapsed uint64
+    var timeElapsed int64
     var status sql.NullString
     var sql sql.NullString
-    var timeMs uint64
-    var rowsExamined uint64
-    var rowsSent uint64
-    var rowsRead uint64
+    var timeMs int64
+    var rowsExamined int64
+    var rowsSent int64
+    var rowsRead int64
 
     // Go through each row, converting it to an Event object.
     for rows.Next() {
