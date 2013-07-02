@@ -1,0 +1,4 @@
+// Cadastre is a way to see what your MySQL servers are running in near-real-time.  It will continuously poll the
+// configured servers and save their process list state to a persistent data store, which can later be viewed by
+// the web interface.
+package cadastre
