@@ -10,9 +10,9 @@ import "bytes"
 import "path/filepath"
 import "encoding/base64"
 import "net/http"
-import "github.com/howeyc/fsnotify"
-import "github.com/pmylund/go-cache"
-import "github.com/realistschuckle/gohaml"
+import "github.com/tobz/fsnotify"
+import "github.com/tobz/go-cache"
+import "github.com/tobz/gohaml"
 
 type WebUI struct {
     Configuration *Configuration
@@ -164,18 +164,24 @@ func (me *WebUI) renderTemplate(response http.ResponseWriter, templatePath strin
     template, err := me.loadTemplate("index.haml")
     if err != nil {
         serveErrorPage(response)
-        return fmt.Errorf("request error: couldn't load template '%s'", templatePath)
+        return fmt.Errorf("request error: couldn't load template '%s': %s", templatePath, err)
     }
 
     // Start our template engines... vroom vroom.
-    hamlEngine, err := gohaml.NewEngine(template)
+    options := gohaml.NewEngineOptions()
+    hamlEngine, err := gohaml.NewEngine(options, template)
     if err != nil {
         serveErrorPage(response)
-        return fmt.Errorf("request error: couldn't initialize HAML engine")
+        return fmt.Errorf("request error: couldn't initialize HAML engine: %s", err)
     }
 
     // Generate our template output and write it to the response.
-    templateOutput := hamlEngine.Render(content)
+    templateOutput, err := hamlEngine.Render(content)
+    if err != nil {
+        serveErrorPage(response)
+        return fmt.Errorf("request error: couldn't render template '%s': %s", templatePath,err)
+    }
+
     io.WriteString(response, templateOutput)
 
     return nil
