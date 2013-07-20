@@ -1,3 +1,4 @@
+listenAddress: 0.0.0.0:8080
 fetchInterval: 10s
 templateDirectory: /tmp
 staticAssetDirectory: /tmp

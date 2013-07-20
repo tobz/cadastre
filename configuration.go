@@ -19,6 +19,9 @@ type Configuration struct {
 	// The storage engine used to persist the host information to.
 	Storage DataStore
 
+	// The address for the web server to listen on.
+	ListenAddress string
+
 	// Where to load templates from.
 	TemplateDirectory string
 
@@ -37,6 +40,14 @@ func LoadConfigurationFromFile(configurationFile string) (*Configuration, error)
 	if err != nil {
 		return nil, fmt.Errorf("Caught an error while trying to load the configuration! %s", err)
 	}
+
+	// Get the address that the web server will listen on.
+	listenAddress, err := yamlConfig.Get("listenAddress")
+	if err != nil || listenAddress == "" {
+		return nil, fmt.Errorf("Listen address must be specified!")
+	}
+
+	config.ListenAddress = listenAddress
 
 	// Get the fetch interval.
 	fetchInterval, err := yamlConfig.Get("fetchInterval")

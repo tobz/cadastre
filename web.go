@@ -76,7 +76,7 @@ func (me *WebUI) StartListening() error {
 
 	// Create our server instance using our request multiplexer.
 	me.server = &http.Server{
-		Addr:    "0.0.0.0:8080",
+		Addr:    me.Configuration.ListenAddress,
 		Handler: requestMultiplexer,
 	}
 
