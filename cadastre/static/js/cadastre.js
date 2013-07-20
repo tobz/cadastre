@@ -19,11 +19,11 @@ $(document).ready(function() {
     $.ajax("/_getServerGroups", {
         success: function(data, statusCode, xhr) {
             if(data.success && data.payload.groups) {
-                $.each(data.payload.groups, function(key, group) {
+                $.each(data.payload.groups, function(groupName, group) {
                     // Add in the category name and divider if this isn't the default category.
-                    if(group.categoryName != "") {
+                    if(groupName != "") {
                         $("#serverList")
-                        .append($("<option></option>").html(group.categoryName).val("empty"))
+                        .append($("<option></option>").html(groupName).val("empty"))
                         .append($("<option></option>").html("--------------").val("empty"))
                     }
 
