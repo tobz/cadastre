@@ -3,6 +3,8 @@ package cadastre
 import "fmt"
 import "log"
 import "os"
+import "io"
+import "strings"
 import "sync/atomic"
 import "time"
 import "bytes"
@@ -10,6 +12,7 @@ import "path/filepath"
 import "html/template"
 import "encoding/base64"
 import "encoding/json"
+import "compress/gzip"
 import "net/http"
 import "github.com/tobz/fsnotify"
 import "github.com/tobz/go-cache"
@@ -166,20 +169,32 @@ func (me *WebUI) serveIndex(response http.ResponseWriter, request *http.Request)
 }
 
 func (me *WebUI) serveServerGroups(response http.ResponseWriter, request *http.Request) error {
-	// Build a fake result for testing.
-	servers := make([]map[string]interface{}, 0)
-	serverOne := make(map[string]interface{}, 1)
-	serverOne["internalName"] = "master1"
-	serverOne["displayName"] = "master1"
-	servers = append(servers, serverOne)
+	// Go through all the configured servers and organize them by category.
+	groups := make(map[string]map[string]interface{}, 0)
 
-	groups := make([]map[string]interface{}, 0)
-	defaultGroup := make(map[string]interface{}, 1)
-	defaultGroup["categoryName"] = "default"
-	defaultGroup["servers"] = servers
-	groups = append(groups, defaultGroup)
+	for _, s := range me.Configuration.Servers {
+		// Create the group entry if we don't already have one.
+		if _, ok := groups[s.Category]; !ok {
+			group := make(map[string]interface{}, 0)
 
-	result := make(map[string]interface{}, 1)
+			servers := make([]map[string]string, 0)
+			group["servers"] = servers
+
+			groups[s.Category] = group
+		}
+
+		// Create a server entry and add it to the group.
+		server := make(map[string]string, 0)
+		server["internalName"] = s.InternalName
+		server["displayName"] = s.DisplayName
+
+		existingServers := groups[s.Category]["servers"].([]map[string]string)
+		existingServers = append(existingServers, server)
+		groups[s.Category]["servers"] = existingServers
+	}
+
+	// Wrap our result.
+	result := make(map[string]interface{}, 0)
 	result["groups"] = groups
 
 	return me.renderJson(response, result)
@@ -263,13 +278,36 @@ func serveErrorPage(response http.ResponseWriter) {
 	response.Write([]byte(errorOutput))
 }
 
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (me *gzipResponseWriter) Write(b []byte) (int, error) {
+	return me.Writer.Write(b)
+}
+
 type CadastreWebHandler struct {
 	Handler func(http.ResponseWriter, *http.Request) error
 	Server  *WebUI
 }
 
 func (me *CadastreWebHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	err := me.Handler(response, request)
+	var err error
+
+	// If the browser accepts gzip'd content, use that.
+	if strings.Contains(request.Header.Get("Accept-Encoding"), "gzip") {
+		response.Header().Set("Content-Encoding", "gzip")
+
+		gzipWriter := gzip.NewWriter(response)
+		defer gzipWriter.Close()
+
+		gzipResponse := &gzipResponseWriter{Writer: gzipWriter, ResponseWriter: response}
+		err = me.Handler(gzipResponse, request)
+	} else {
+		err = me.Handler(response, request)
+	}
+
 	if err != nil {
 		incrementCounter(&(me.Server.RequestErrors))
 	}
