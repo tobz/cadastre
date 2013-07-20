@@ -210,8 +210,18 @@ func (me *WebUI) serveCurrentSnapshot(response http.ResponseWriter, request *htt
 	internalName := requestVars["serverName"]
 
 	// Try and find the given server in our list of servers.
-	//for _, server := range me.Configuration.Servers {
-	//}
+	for _, server := range me.Configuration.Servers {
+		if server.InternalName == internalName {
+			// Found our server, so try and take a snapshot.
+			newSnapshot := &Snapshot{}
+			err := newSnapshot.TakeSnapshot(server)
+			if err != nil {
+				return me.renderJsonError(response, fmt.Sprintf("Failed to take processlist snapshot for <b>%s</b>! %s", internalName, err.Error()))
+			}
+
+			return me.renderJson(response, newSnapshot)
+		}
+	}
 
 	// We never found the server, so inform the UI.  This is definitely a bug.
 	return me.renderJsonError(response, fmt.Sprintf("Failed to find server <b>%s</b> in the configured list of servers!", internalName))
