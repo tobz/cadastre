@@ -5,6 +5,7 @@
     <title>Cadastre - MySQL at a glance</title>
     <link rel="stylesheet" href="/static/css/bootstrap.min.css" />
     <link rel="stylesheet" href="/static/css/bootstrap-responsive.min.css" />
+    <link rel="stylesheet" href="/static/css/cadastre.css" />
   </head>
   <body>
     <div class="navbar navbar-inverse navbar-fixed-top">
@@ -23,9 +24,93 @@
       </div>
     </div>
 
+    <!-- Content container. -->
+    <div class="navbar navbar-fixed-top cadastre-control-bar">
+        <div class="navbar-inner">
+            <div class="container">
+                <div class="row">
+                    <!-- Server / database controls -->
+                    <div class="span4 pull-left text-left">
+                        <form>
+                            <div class="control-group">
+                                <label class="control-label cadastre-control-label">Server</label>
+                                <div class="controls">
+                                    <select id="serverList" class="span4">
+                                        <option value="empty"></option>
+                                    </select>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="span3 pull-left text-left">
+                        <form>
+                            <div class="control-group">
+                                <label class="control-label cadastre-control-label">Database</label>
+                                <div class="controls">
+                                    <select id="databaseList" class="span3">
+                                    </select>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Display options -->
+                    <div class="span3 pull-left text-left">
+                        <form>
+                            <div class="control-group">
+                                <label class="control-label cadastre-control-label">Query States</label>
+                                <div class="controls">
+                                    <label class="checkbox inline">
+                                        <input type="checkbox" id="sleepingQueries" value="" /> Sleeping
+                                    </label>
+                                    <label class="checkbox inline">
+                                        <input type="checkbox" id="runningQueries" value="" checked="checked" /> Running
+                                    </label>
+                                    <label class="checkbox inline">
+                                        <input type="checkbox" id="lockedQueries" value="" checked="checked" /> Locked
+                                    </label>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="span2 pull-left text-left">
+                        <form>
+                            <div class="control-group">
+                                <label class="control-label cadastre-control-label">Query Length</label>
+                                <div class="controls">
+                                    <select id="queryLength" class="span2">
+                                        <option value="150">150 characters</option>
+                                        <option value="350" selected="selected">350 characters</option>
+                                        <option value="500">500 characters</option>
+                                        <option value="1000">1000 characters</option>
+                                        <option value="-1">show full queries</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="content" class="container-fluid">
+        <div id="spinner" class="text-center hide">
+            <img src="/static/img/spinner.gif" />
+        </div>
+
+        <div id="errors" class="container">
+        </div>
+
+        <div id="events" class="row-fluid">
+        </div>
+    </div>
+
     <!-- Ze javascript. -->
     <script src="/static/js/jquery.min.js"></script>
     <script src="/static/js/bootstrap.min.js"></script>
-    <script src="/static/js/json2.min.js"></script>
+    <script src="/static/js/cadastre.js"></script>
   </body>
 </html>

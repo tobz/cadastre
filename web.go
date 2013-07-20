@@ -9,9 +9,11 @@ import "bytes"
 import "path/filepath"
 import "html/template"
 import "encoding/base64"
+import "encoding/json"
 import "net/http"
 import "github.com/tobz/fsnotify"
 import "github.com/tobz/go-cache"
+import "github.com/gorilla/mux"
 
 type WebUI struct {
 	Configuration *Configuration
@@ -67,7 +69,7 @@ func (me *WebUI) StartListening() error {
 	log.Printf("Creating HTTP server...")
 
 	// Set up our request multiplexer.
-	requestMultiplexer := http.NewServeMux()
+	requestMultiplexer := mux.NewRouter()
 
 	// Create our server instance using our request multiplexer.
 	me.server = &http.Server{
@@ -80,13 +82,15 @@ func (me *WebUI) StartListening() error {
 	// Define our routes.
 	requestMultiplexer.Handle("/favicon.ico", CadastreHandler(me, me.serveFavicon))
 	requestMultiplexer.Handle("/", CadastreHandler(me, me.serveIndex))
+	requestMultiplexer.Handle("/_getServerGroups", CadastreHandler(me, me.serveServerGroups))
+	requestMultiplexer.Handle("/_getCurrentSnapshot/{serverName}", CadastreHandler(me, me.serveCurrentSnapshot))
 
 	absStaticAssetPath, err := filepath.Abs(me.Configuration.StaticAssetDirectory)
 	if err != nil {
 		return fmt.Errorf("Caught an error trying to get the absolute path to the static asset directory! %s", err)
 	}
 
-	requestMultiplexer.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(absStaticAssetPath))))
+	requestMultiplexer.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(absStaticAssetPath))))
 
 	// Start listening!
 	go func() {
@@ -146,8 +150,7 @@ func (me *WebUI) loadTemplate(templatePath string) (*template.Template, error) {
 func (me *WebUI) serveFavicon(response http.ResponseWriter, request *http.Request) error {
 	response.Header().Add("Content-Type", "image/x-icon")
 
-	encodedFavicon := "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAYAAABPYyMiAAAABmJLR0T///////8JWPfcAAAACXBIWXMAAABIAAAASABGyWs+AAAAF0lEQVRIx2NgGAWjYBSMglEwCkbBSAcACBAAAeaR9cIAAAAASUVORK5CYII="
-	imageData, err := base64.StdEncoding.DecodeString(encodedFavicon)
+	imageData, err := base64.StdEncoding.DecodeString(CadastreEncodedFavicon)
 	if err != nil {
 		serveErrorPage(response)
 		return fmt.Errorf("request error: couldn't decode favicon data")
@@ -162,11 +165,80 @@ func (me *WebUI) serveIndex(response http.ResponseWriter, request *http.Request)
 	return me.renderTemplate(response, "index.goml", nil)
 }
 
+func (me *WebUI) serveServerGroups(response http.ResponseWriter, request *http.Request) error {
+	// Build a fake result for testing.
+	servers := make([]map[string]interface{}, 0)
+	serverOne := make(map[string]interface{}, 1)
+	serverOne["internalName"] = "master1"
+	serverOne["displayName"] = "master1"
+	servers = append(servers, serverOne)
+
+	groups := make([]map[string]interface{}, 0)
+	defaultGroup := make(map[string]interface{}, 1)
+	defaultGroup["categoryName"] = "default"
+	defaultGroup["servers"] = servers
+	groups = append(groups, defaultGroup)
+
+	result := make(map[string]interface{}, 1)
+	result["groups"] = groups
+
+	return me.renderJson(response, result)
+}
+
 func incrementCounter(addr *uint64) {
 	atomic.AddUint64(addr, 1)
 }
 
+func (me *WebUI) serveCurrentSnapshot(response http.ResponseWriter, request *http.Request) error {
+	// Get the specified server name.
+	requestVars := mux.Vars(request)
+	internalName := requestVars["serverName"]
+
+	// Try and find the given server in our list of servers.
+	//for _, server := range me.Configuration.Servers {
+	//}
+
+	// We never found the server, so inform the UI.  This is definitely a bug.
+	return me.renderJsonError(response, fmt.Sprintf("Failed to find server <b>%s</b> in the configured list of servers!", internalName))
+}
+
+func (me *WebUI) renderJson(response http.ResponseWriter, data interface{}) error {
+	response.Header().Set("Content-Type", "application/json")
+
+	result := make(map[string]interface{}, 0)
+	result["success"] = true
+	result["payload"] = data
+
+	jsonEncoder := json.NewEncoder(response)
+	err := jsonEncoder.Encode(result)
+	if err != nil {
+		serveErrorPage(response)
+		return fmt.Errorf("request error: failed to encode object to JSON! %s", err)
+	}
+
+	return nil
+}
+
+func (me *WebUI) renderJsonError(response http.ResponseWriter, errorMessage string) error {
+	response.Header().Set("Content-Type", "application/json")
+
+	result := make(map[string]interface{}, 0)
+	result["success"] = false
+	result["errorMessage"] = errorMessage
+
+	jsonEncoder := json.NewEncoder(response)
+	err := jsonEncoder.Encode(result)
+	if err != nil {
+		serveErrorPage(response)
+		return fmt.Errorf("request error: failed to encode error object to JSON! %s", err)
+	}
+
+	return nil
+}
+
 func (me *WebUI) renderTemplate(response http.ResponseWriter, templatePath string, content map[string]interface{}) error {
+	response.Header().Set("Content-Type", "text/html")
+
 	// Load the specified template.
 	templateData, err := me.loadTemplate(templatePath)
 	if err != nil {
@@ -185,7 +257,9 @@ func (me *WebUI) renderTemplate(response http.ResponseWriter, templatePath strin
 }
 
 func serveErrorPage(response http.ResponseWriter) {
-	errorOutput := ""
+	response.Header().Set("Content-Type", "text/plain")
+
+	errorOutput := "Sorry, something went terribly wrong here. :("
 	response.Write([]byte(errorOutput))
 }
 
