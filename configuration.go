@@ -8,10 +8,14 @@ import "github.com/kylelemons/go-gypsy/yaml"
 // how often to check them, and where to put the data.
 type Configuration struct {
 	// The list of MySQL hosts to check. A host is defined by a unique, internal name,
-	// a display name (something more suitable than the internal name or hostname),
-	// an optional category to allow for logical UI grouping and a DSN used to
-	// figure out how to connect to the MySQL host.
+	// a display name (something more suitable than the internal name or hostname), an optional
+	// category to allow for logical UI grouping and a DSN used to figure out how to connect to
+	// the MySQL host.
 	Servers []Server
+
+	// A list of MySQL hosts to check, grouped by category.  This list contains the same servers
+	// as the "Servers" list.
+	ServerGroups []ServerGroup
 
 	// The interval to check each server.
 	FetchInterval time.Duration
@@ -139,8 +143,8 @@ func LoadConfigurationFromFile(configurationFile string) (*Configuration, error)
 			return nil, fmt.Errorf("You must specify a display name for all monitored servers!")
 		}
 
-		// Get the category for this server.
-		category, _ := yamlConfig.Get(fmt.Sprintf("servers[%d].category", i))
+		// Get the group name for this server.
+		groupName, _ := yamlConfig.Get(fmt.Sprintf("servers[%d].groupName", i))
 
 		// Get the DSN for this server.
 		dataSourceName, err := yamlConfig.Get(fmt.Sprintf("servers[%d].dataSourceName", i))
@@ -151,18 +155,18 @@ func LoadConfigurationFromFile(configurationFile string) (*Configuration, error)
 		// Make sure the internal name and display name are unique.
 		for _, existingServer := range servers {
 			if existingServer.InternalName == internalName {
-				return nil, fmt.Errorf("All monitored servers must have a unique, internal name! Duplicate name: %s", internalName)
+				return nil, fmt.Errorf("All monitored servers must have a unique, internal name! Duplicate internal name: %s", internalName)
 			}
 
 			if existingServer.DisplayName == displayName {
-				return nil, fmt.Errorf("All monitored servers must have a unique, display name! Duplicate name: %s", internalName)
+				return nil, fmt.Errorf("All monitored servers must have a unique, display name! Duplicate display name: %s", displayName)
 			}
 		}
 
 		server := Server{
 			InternalName:   internalName,
 			DisplayName:    displayName,
-			Category:       category,
+			GroupName:      groupName,
 			DataSourceName: dataSourceName,
 		}
 
@@ -170,6 +174,27 @@ func LoadConfigurationFromFile(configurationFile string) (*Configuration, error)
 	}
 
 	config.Servers = servers
+
+	// Now build our list of server groups.
+	serverGroups := make(map[string]*ServerGroup, 0)
+
+	for _, s := range servers {
+		serverGroup, ok := serverGroups[s.GroupName]
+		if !ok {
+			serverGroup = &ServerGroup{GroupName: s.GroupName, Servers: []Server{}}
+			serverGroups[s.GroupName] = serverGroup
+		}
+
+		serverGroup.Servers = append(serverGroup.Servers, s)
+	}
+
+	serverGroupsFlat := make([]ServerGroup, 0)
+
+	for _, sg := range serverGroups {
+		serverGroupsFlat = append(serverGroupsFlat, *sg)
+	}
+
+	config.ServerGroups = serverGroupsFlat
 
 	// Now that we're done parsing the configuration, make sure the configuration is ready to
 	// go and initialize anything we need to initialize, etc.

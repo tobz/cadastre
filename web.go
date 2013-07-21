@@ -169,33 +169,9 @@ func (me *WebUI) serveIndex(response http.ResponseWriter, request *http.Request)
 }
 
 func (me *WebUI) serveServerGroups(response http.ResponseWriter, request *http.Request) error {
-	// Go through all the configured servers and organize them by category.
-	groups := make(map[string]map[string]interface{}, 0)
-
-	for _, s := range me.Configuration.Servers {
-		// Create the group entry if we don't already have one.
-		if _, ok := groups[s.Category]; !ok {
-			group := make(map[string]interface{}, 0)
-
-			servers := make([]map[string]string, 0)
-			group["servers"] = servers
-
-			groups[s.Category] = group
-		}
-
-		// Create a server entry and add it to the group.
-		server := make(map[string]string, 0)
-		server["internalName"] = s.InternalName
-		server["displayName"] = s.DisplayName
-
-		existingServers := groups[s.Category]["servers"].([]map[string]string)
-		existingServers = append(existingServers, server)
-		groups[s.Category]["servers"] = existingServers
-	}
-
 	// Wrap our result.
 	result := make(map[string]interface{}, 0)
-	result["groups"] = groups
+	result["groups"] = me.Configuration.ServerGroups
 
 	return me.renderJson(response, result)
 }
