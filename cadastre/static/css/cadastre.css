@@ -4,9 +4,6 @@ body { padding-top: 160px }
 .cadastre-control-bar { top: 40px }
 .cadastre-control-bar form { margin-top: 15px }
 
-#eventTable {
-    margin-top: 20px;
-}
 #eventTable thead { font-weight: bold }
 
 .query-normal { background-color: #a2f5a2 }

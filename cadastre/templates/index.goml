@@ -105,6 +105,14 @@
         </div>
 
         <div id="events" class="row-fluid">
+            <div id="eventsHeader" class="row-fluid">
+            </div>
+
+            <div id="eventViewOptions" class="row-fluid">
+            </div>
+
+            <div id="eventTable" class="row-fluid">
+            </div>
         </div>
     </div>
 

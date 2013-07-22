@@ -89,11 +89,29 @@ $(document).ready(function() {
     })
 })
 
-function populateEvents(serverName, events, realTime) {
+function populateEventsHeader(serverName) {
     // Build our table header and real-time/historical button group.
-    var tableHeader = $('<div></div>')
-    tableHeader.html('<h3>' + serverName + '&nbsp;<small>' + moment().format('MMMM Do YYYY, HH:mm:ss') + '</small></h3>')
+    var header = $('<div></div>')
+    var headerTitle = $('<h3></h3>').html(serverName)
+    var headerTime = $('<small></small>').attr('id', '#displayTime').html('&nbsp;' + moment().format('MMMM Do YYYY, HH:mm:ss'))
+    headerTitle.append(headerTime)
+    header.append(headerTitle)
 
+    $('#eventsHeader').empty()
+    $('#eventsHeader').append(header)
+
+    updateEventHeaderTime()
+}
+
+function updateEventHeaderTime() {
+    $('#displayTime').html('&nbsp;' + moment().format('MMMM Do YYYY, HH:mm:ss'))
+}
+
+function populateEvents(serverName, events, realTime) {
+    // Build our events header - server name, time, etc.
+    populateEventsHeader(serverName)
+
+    // Populate the events view options area.
     var buttonGroup = $('<div></div>')
         .addClass('btn-group').addClass('btn-group-vertical').addClass('span1').attr('data-toggle', 'buttons-radio')
     var realTimeButton = $('<button></button>')
@@ -159,10 +177,11 @@ function populateEvents(serverName, events, realTime) {
     eventTable.append(eventTableHeader)
     eventTable.append(eventTableBody)
 
-    $('#events').empty()
-    $('#events').append(tableHeader)
-    $('#events').append(eventViewOptions)
-    $('#events').append(eventTable)
+    $('#eventViewOptions').empty()
+    $('#eventViewOptions').append(eventViewOptions)
+
+    $('#eventTable').empty()
+    $('#eventTable').append(eventTable)
 
     // Set our real-time or historical button based on what we're loading.
     if(realTime) {
