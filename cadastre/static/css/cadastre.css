@@ -3,3 +3,15 @@ body { padding-top: 160px }
 .cadastre-control-label { font-weight: bold }
 .cadastre-control-bar { top: 40px }
 .cadastre-control-bar form { margin-top: 15px }
+
+#eventTable {
+    margin-top: 20px;
+}
+#eventTable thead { font-weight: bold }
+
+.query-normal { background-color: #a2f5a2 }
+.query-normal:hover { background-color: #8ad48a }
+.query-locked { background-color: #f7c272 }
+.query-locked:hover { background-color: #d6a863 }
+.query-sleeping { background-color: #cccccc }
+.query-sleeping:hover { background-color: #a8a7a7 }

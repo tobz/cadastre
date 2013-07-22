@@ -62,13 +62,13 @@
                                 <label class="control-label cadastre-control-label">Query States</label>
                                 <div class="controls">
                                     <label class="checkbox inline">
-                                        <input type="checkbox" id="sleepingQueries" value="" /> Sleeping
-                                    </label>
-                                    <label class="checkbox inline">
                                         <input type="checkbox" id="runningQueries" value="" checked="checked" /> Running
                                     </label>
                                     <label class="checkbox inline">
                                         <input type="checkbox" id="lockedQueries" value="" checked="checked" /> Locked
+                                    </label>
+                                    <label class="checkbox inline">
+                                        <input type="checkbox" id="sleepingQueries" value="" /> Sleeping
                                     </label>
                                 </div>
                             </div>
@@ -111,6 +111,7 @@
     <!-- Ze javascript. -->
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.1.0/moment.min.js"></script>
     <script src="/static/js/cadastre.js"></script>
   </body>
 </html>

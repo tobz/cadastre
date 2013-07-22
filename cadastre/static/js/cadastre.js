@@ -59,14 +59,15 @@ $(document).ready(function() {
             currentRequest.abort()
         }
 
-        var retryButton = $("<button></button>").addClass("btn").html("Reload")
+        var retryButton = $('<button></button>').addClass('btn').html('Reload')
             .on('click', function(e) { $("#serverList").change() })
 
 
         // Try and get a current process list snapshot for the selected server.
         currentRequest = $.ajax("/_getCurrentSnapshot/" + selection.val(), {
             success: function(data, statusCode, xhr) {
-                if(data.success && data.events) {
+                if(data.success && data.payload.events) {
+                    populateEvents(selection.html(), data.payload.events, true);
                 } else if(!data.success && data.errorMessage) {
                     var message = "We encountered an error while attempting to query the database.  Here's what the server said: <i>" + data.errorMessage + "</i>"
                     showErrorMessage("Error while querying server!", message, [retryButton])
@@ -80,13 +81,96 @@ $(document).ready(function() {
                     showErrorMessage("Timeout!", message, [retryButton])
                 }
 
-                currentRequuest = null
+                currentRequest = null
             },
             timeout: 6000,
             spinner: "#spinner"
         })
     })
 })
+
+function populateEvents(serverName, events, realTime) {
+    // Build our table header and real-time/historical button group.
+    var tableHeader = $('<div></div>')
+    tableHeader.html('<h3>' + serverName + '&nbsp;<small>' + moment().format('MMMM Do YYYY, HH:mm:ss') + '</small></h3>')
+
+    var buttonGroup = $('<div></div>')
+        .addClass('btn-group').addClass('btn-group-vertical').addClass('span1').attr('data-toggle', 'buttons-radio')
+    var realTimeButton = $('<button></button>')
+        .addClass('btn').addClass('btn-primary').addClass('btn-block').html('Real Time')
+    var historicalButton = $('<button></button>')
+        .addClass('btn').addClass('btn-primary').addClass('btn-block').html('Historical')
+
+    buttonGroup.append(realTimeButton).append(historicalButton)
+
+    var eventViewOptions = $('<div></div>').addClass('row-fluid')
+    eventViewOptions.append(buttonGroup)
+    eventViewOptions.append(
+        $('<div></div>').addClass('span11').addClass('well').html('Do stuff here.')
+    )
+
+    // Build our actual event table.
+    var eventTable = $('<table></table>').addClass('table').attr('id', 'eventTable')
+    var eventTableBody = $('<tbody></tbody>')
+
+    var eventTableHeader = $('<thead></thead>')
+    eventTableHeader.html(
+        '<tr>' +
+        '<td style="width: 1%">ID</td>' +
+        '<td style="width: 1%">Time</td>' +
+        '<td style="width: 5%">Host</td>' +
+        '<td style="width: 5%">User</td>' +
+        '<td style="width: 5%">Database</td>' +
+        '<td style="width: 20%">Status</td>' +
+        '<td style="width: 60%">SQL</td>' +
+        '<td style="width: 1%">Rows Sent</td>' +
+        '<td style="width: 1%">Rows Examined</td>' +
+        '<td style="width: 1%">Rows Read</td>' +
+        '</tr>'
+    )
+
+    for(var i = 0; i < events.length; i++) {
+        var eventRow = $('<tr></tr>')
+        eventRow.html(
+            '<td>' + events[i].id + '</td>' +
+            '<td>' + events[i].timeElapsed + '</td>' +
+            '<td>' + events[i].host.substr(0, events[i].host.indexOf(':')) + '</td>' +
+            '<td>' + events[i].user + '</td>' +
+            '<td>' + events[i].database + '</td>' +
+            '<td>' + events[i].status + '</td>' +
+            '<td>' + events[i].sql + '</td>' +
+            '<td>' + events[i].rowsSent + '</td>' +
+            '<td>' + events[i].rowsExamined + '</td>' +
+            '<td>' + events[i].rowsRead + '</td>'
+        )
+
+        // Assign the background color to the row based on the query status.
+        if(events[i].status.toLowerCase().indexOf('lock') !== -1) {
+            eventRow.addClass('query-locked')
+        } else if (events[i].command == "Sleep") {
+            eventRow.addClass('query-sleeping')
+        } else {
+            eventRow.addClass('query-normal')
+        }
+
+        eventTableBody.append(eventRow)
+    }
+
+    eventTable.append(eventTableHeader)
+    eventTable.append(eventTableBody)
+
+    $('#events').empty()
+    $('#events').append(tableHeader)
+    $('#events').append(eventViewOptions)
+    $('#events').append(eventTable)
+
+    // Set our real-time or historical button based on what we're loading.
+    if(realTime) {
+        realTimeButton.click()
+    } else {
+        historicalButton.click()
+    }
+}
 
 function showErrorMessage(title, message, appends) {
     var alertBlock = $("<div></div>")

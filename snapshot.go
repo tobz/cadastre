@@ -12,22 +12,22 @@ import _ "github.com/go-sql-driver/mysql"
 // where, the sttus of the query, the actual query itself, and metadata such as rows sent,
 // examined and read, where applicable.
 type Event struct {
-	EventID      int64
-	TimeElapsed  int64
-	Host         string
-	Database     string
-	User         string
-	Command      string
-	Status       string
-	SQL          string
-	RowsSent     int64
-	RowsExamined int64
-	RowsRead     int64
+	EventID      int64  `json:"id"`
+	TimeElapsed  int64  `json:"timeElapsed"`
+	Host         string `json:"host"`
+	Database     string `json:"database"`
+	User         string `json:"user"`
+	Command      string `json:"command"`
+	Status       string `json:"status"`
+	SQL          string `json:"sql"`
+	RowsSent     int64  `json:"rowsSent"`
+	RowsExamined int64  `json:"rowsExamined"`
+	RowsRead     int64  `json:"rowsRead"`
 }
 
 // A collection of events that represent a complete point in time view of the MySQL process list.
 type Snapshot struct {
-	Events []Event
+	Events []Event `json:"events"`
 }
 
 func (me *Snapshot) TakeSnapshot(server Server) error {
