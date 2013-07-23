@@ -97,10 +97,6 @@
     </div>
 
     <div id="content" class="container-fluid">
-        <div id="spinner" class="text-center hide">
-            <img src="/static/img/spinner.gif" />
-        </div>
-
         <div id="errors" class="container">
         </div>
 
@@ -113,6 +109,10 @@
 
             <div id="eventTable" class="row-fluid">
             </div>
+        </div>
+
+        <div id="spinner" class="text-center hide">
+            <img src="/static/img/spinner.gif" />
         </div>
     </div>
 
