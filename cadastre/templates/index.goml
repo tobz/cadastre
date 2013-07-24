@@ -58,7 +58,7 @@
                     <!-- Display options -->
                     <div class="span3 pull-left text-left">
                         <form>
-                            <div class="control-group">
+                            <div id="viewStateControls" class="control-group">
                                 <label class="control-label cadastre-control-label">Query States</label>
                                 <div class="controls">
                                     <label class="checkbox inline">

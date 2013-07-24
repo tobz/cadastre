@@ -1,19 +1,38 @@
-var dataHistory = {}
+var historicalData = []
 var currentRequest = null
 var currentServer = null
+var currentSnapshot = null
+var viewFilters = {
+    "runningFilter": function(snapshotEvent) {
+        return $("#runningQueries").is(":checked") && (snapshotEvent.command.toLowerCase() != "sleep" && snapshotEvent.status.toLowerCase().indexOf("lock") == -1)
+    },
+    "lockedFilter": function(snapshotEvent) {
+        return $("#lockedQueries").is(":checked") && (snapshotEvent.status.toLowerCase().indexOf("lock") !== -1)
+    },
+    "sleepingFilter": function(snapshotEvent) {
+        return $("#sleepingQueries").is(":checked") && (snapshotEvent.command.toLowerCase() == "sleep")
+    }
+}
 
 jQuery.ajaxPrefilter(function(options, originalOptions, xhr) {
     if(options.spinner) {
-        var spinner = jQuery(options.spinner);
+        var spinner = jQuery(options.spinner)
+        var contentRemove = jQuery(options.contentRemove)
         if(spinner && spinner.length > 0) {
-            var timeoutId = setTimeout(function() { spinner.show(); }, 250);
+            var timeoutId = setTimeout(function() {
+                if(contentRemove && contentRemove.length > 0) {
+                    contentRemove.empty()
+                }
+                spinner.show()
+            }, 250)
+
             xhr.always(function() {
-                clearTimeout(timeoutId);
-                spinner.hide();
-            });
+                clearTimeout(timeoutId)
+                spinner.hide()
+            })
         }
     }
-});
+})
 
 $(document).ready(function() {
     // Load up our list of servers in the dropdown.
@@ -69,10 +88,35 @@ $(document).ready(function() {
             // Set our currently server to this one so reclicks on the dropdown don't start a full content panel refresh.
             currentServer = serverName
 
-            populateEvents(selection.html(), data.events, true)
+            // Add this to the front of the historical data list.
+            historicalData.unshift({
+                "dateTime": moment().format('MMMM Do YYYY, HH:mm:ss'),
+                "events": data
+            })
+
+            // Draw our events content.
+            populateEvents(selection.html(), currentSnapshot, true)
         })
     })
+
+    $("#viewStateControls input[type=checkbox]").on('change', function(e) {
+        // Trigger a redraw.
+        redrawEvents()
+    })
 })
+
+function eventMatchesViewState(snapshotEvent) {
+    // Go through every configured view filter.
+    for(var filterName in viewFilters) {
+        // If the filter matches, it means this event belongs in the events display.
+        var match = viewFilters[filterName]
+        if(match(snapshotEvent)) {
+            return true
+        }
+    }
+
+    return false
+}
 
 function pullLatestData(serverName, successCallback) {
     // If we have an existing loading call, abort it.
@@ -84,7 +128,17 @@ function pullLatestData(serverName, successCallback) {
     currentRequest = $.ajax("/_getCurrentSnapshot/" + serverName, {
         success: function(data, statusCode, xhr) {
             if(data.success) {
-                successCallback(serverName, data.payload)
+                // Set our current snapshot.
+                currentSnapshot = data.payload.events
+
+                // Add this to the front of the historical data list.
+                historicalData.unshift({
+                    "dateTime": moment().format('MMMM Do YYYY, HH:mm:ss'),
+                    "events": data.payload.events
+                })
+
+                // Call the user-supplied callback.
+                successCallback(serverName)
             } else if(!data.success && data.errorMessage) {
                 var message = "We encountered an error while attempting to query the database.  Here's what the server said: <i>" + data.errorMessage + "</i>"
                 showErrorMessage("Error while querying server!", message, [retryButton])
@@ -101,7 +155,8 @@ function pullLatestData(serverName, successCallback) {
             currentRequest = null
         },
         timeout: 6000,
-        spinner: "#spinner"
+        spinner: "#spinner",
+        contentRemove: "#eventsTable"
     })
 }
 
@@ -129,8 +184,13 @@ function populateEventViewOptions(realTime) {
     var realTimeButton = $('<button></button>').addClass('btn btn-primary btn-block').html('Real Time').on('click', function(e) {
         e.preventDefault()
 
+        // Don't do anything if we're already toggled to the real-time view.
+        if($(this).hasClass('active')) {
+            return
+        }
+
         // Reset any historical data.
-        historicalData = {}
+        historicalData = []
 
         // Add our button to reload the data.
         var reloadButton = $('<button></button>').addClass('btn btn-primary').html('Reload').on('click', function(e) {
@@ -142,6 +202,7 @@ function populateEventViewOptions(realTime) {
 
         $('#viewSuboptions').empty()
         $('#viewSuboptions').append(reloadButton)
+        $('#viewSuboptions').append($('<div></div>').attr('id', 'historicalLinks'))
     })
     var historicalButton = $('<button></button>').addClass('btn btn-primary btn-block').html('Historical').on('click', function(e) {
         e.preventDefault()
@@ -187,14 +248,26 @@ function populateEventsTable(events) {
         '</tr>'
     )
 
+    // Collect the list of unique databases in this set of events.
+    var databases = {}
+
     for(var i = 0; i < events.length; i++) {
+        // Make sure this event belongs in the current view based on state toggles (sleeping, locked, etc)
+        if(!eventMatchesViewState(events[i]))
+            continue
+
+        // Mark this database as being present if it's not empty.
+        if(events[i].database != "") {
+            databases[events[i].database] = true
+        }
+
         var eventRow = $('<tr></tr>')
         eventRow.html(
             '<td>' + events[i].id + '</td>' +
             '<td>' + events[i].timeElapsed + '</td>' +
             '<td>' + events[i].host.substr(0, events[i].host.indexOf(':')) + '</td>' +
             '<td>' + events[i].user + '</td>' +
-            '<td>' + events[i].database + '</td>' +
+            '<td data-database="' + events[i].database + '">' + events[i].database + '</td>' +
             '<td>' + events[i].status + '</td>' +
             '<td>' + events[i].sql + '</td>' +
             '<td>' + events[i].rowsSent + '</td>' +
@@ -217,8 +290,22 @@ function populateEventsTable(events) {
     eventTable.append(eventTableHeader)
     eventTable.append(eventTableBody)
 
+    // Set our list of databases.
+    $('#databaseList').empty()
+    $('#databaseList').append($('<option></option>').val('*').html('*'))
+
+    for(var databaseName in databases) {
+        $('#databaseList').append($('<option></option>').val(databaseName).html(databaseName))
+    }
+
+    // Clear the old events table and put in our new one.
     $('#eventTable').empty()
     $('#eventTable').append(eventTable)
+}
+
+function redrawEvents() {
+    // Simply repopulate the events table with the current snapshot.
+    populateEventsTable(currentSnapshot)
 }
 
 function populateEvents(serverName, events, realTime) {
@@ -230,22 +317,33 @@ function populateEvents(serverName, events, realTime) {
 
     // Populate our events table.
     populateEventsTable(events)
+
+    // If we're in real-time mode, redraw our historical data.
+    if(realTime) {
+        redrawRecentDataList()
+    }
+}
+
+function redrawRecentDataList() {
 }
 
 function refreshServerData() {
     // Clear out any errors, just to be safe.
     $("#errors").empty()
 
-    // Clear out the existing event table.
-    $('#eventTable').empty()
-
     // Get the latest data for the given server.
-    pullLatestData(currentServer, function(serverName, data) {
+    pullLatestData(currentServer, function(serverName) {
+        // Clear out the existing event table.
+        $('#eventTable').empty()
+
         // Update the time of the snapshot.
         updateEventsHeaderTime()
 
         // Populate only the event table itself.
-        populateEventsTable(data.events)
+        populateEventsTable(currentSnapshot)
+
+        // Redraw historical data since we got new stuff.
+        redrawRecentDataList()
     })
 }
 
