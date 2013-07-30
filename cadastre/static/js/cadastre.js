@@ -1,6 +1,10 @@
-var historicalData = []
+var maximumRecentDataAmount = 5
+var currentRecentSelection = 0
+
+var recentData = []
 var currentRequest = null
 var currentServer = null
+var currentServerDisplayName = ""
 var currentSnapshot = null
 var viewFilters = {
     "runningFilter": function(snapshotEvent) {
@@ -80,6 +84,8 @@ $(document).ready(function() {
             return
         }
 
+        currentServerDisplayName = selection.html()
+
         // Clear out any existing event content since we're loading a brand new server.
         clearEventContent()
 
@@ -87,12 +93,6 @@ $(document).ready(function() {
         pullLatestData(selection.val(), function(serverName, data) {
             // Set our currently server to this one so reclicks on the dropdown don't start a full content panel refresh.
             currentServer = serverName
-
-            // Add this to the front of the historical data list.
-            historicalData.unshift({
-                "dateTime": moment().format('MMMM Do YYYY, HH:mm:ss'),
-                "events": data
-            })
 
             // Draw our events content.
             populateEvents(selection.html(), currentSnapshot, true)
@@ -131,11 +131,8 @@ function pullLatestData(serverName, successCallback) {
                 // Set our current snapshot.
                 currentSnapshot = data.payload.events
 
-                // Add this to the front of the historical data list.
-                historicalData.unshift({
-                    "dateTime": moment().format('MMMM Do YYYY, HH:mm:ss'),
-                    "events": data.payload.events
-                })
+                // Add this to our list of recent data.
+                addToRecentData(currentServerDisplayName, data.payload.events)
 
                 // Call the user-supplied callback.
                 successCallback(serverName)
@@ -160,7 +157,7 @@ function pullLatestData(serverName, successCallback) {
     })
 }
 
-function populateEventsHeader(serverName) {
+function populateEventsHeader(serverName, timestamp) {
     // Build our table header and real-time/historical button group.
     var header = $('<div></div>')
     var headerTitle = $('<h3></h3>').html(serverName)
@@ -171,17 +168,25 @@ function populateEventsHeader(serverName) {
     $('#eventsHeader').empty()
     $('#eventsHeader').append(header)
 
-    updateEventsHeaderTime()
+    if(timestamp) {
+        setEventsHeaderTime(moment.unix(timestamp))
+    } else {
+        updateEventsHeaderTime()
+    }
 }
 
 function updateEventsHeaderTime() {
-    $('#displayTime').html('&nbsp;' + moment().format('MMMM Do YYYY, HH:mm:ss'))
+    setEventsHeaderTime(moment())
+}
+
+function setEventsHeaderTime(timeobj) {
+    $('#displayTime').html('&nbsp;' + timeobj.format('MMMM Do YYYY, HH:mm:ss'))
 }
 
 function populateEventViewOptions(realTime) {
     // Populate the events view options area.
-    var buttonGroup = $('<div></div>').addClass('btn-group btn-group-vertical span1').attr('data-toggle', 'buttons-radio')
-    var realTimeButton = $('<button></button>').addClass('btn btn-primary btn-block').html('Real Time').on('click', function(e) {
+    var navGroup = $('<div></div>').addClass('tabbable tabs-left')
+    var realTimeOption = $('<a></a>').attr("data-toggle", "tab").html('Real Time').on('click', function(e) {
         e.preventDefault()
 
         // Don't do anything if we're already toggled to the real-time view.
@@ -189,11 +194,8 @@ function populateEventViewOptions(realTime) {
             return
         }
 
-        // Reset any historical data.
-        historicalData = []
-
         // Add our button to reload the data.
-        var reloadButton = $('<button></button>').addClass('btn btn-primary').html('Reload').on('click', function(e) {
+        var reloadButton = $('<button></button>').addClass('btn btn-primary btn-block btn-shiftdown').html('Reload').on('click', function(e) {
             e.preventDefault()
 
             // Trigger a simple refresh.
@@ -201,29 +203,40 @@ function populateEventViewOptions(realTime) {
         })
 
         $('#viewSuboptions').empty()
-        $('#viewSuboptions').append(reloadButton)
-        $('#viewSuboptions').append($('<div></div>').attr('id', 'historicalLinks'))
+
+        var realTimeContainer = $('<div></div>').append($("<div></div>")
+            .addClass("pull-left span1")
+            .append($("<span></span>").html("Actions: "))
+            .append(reloadButton)
+        )
+        $("#viewSuboptions").append(realTimeContainer)
+        $("#viewSuboptions").append($("<div></div>").attr("id", "historicalLinks"))
+
+        redrawRecentDataList()
     })
-    var historicalButton = $('<button></button>').addClass('btn btn-primary btn-block').html('Historical').on('click', function(e) {
+    var historicalOption = $('<a></a>').attr("data-toggle", "tab").html('Historical').on('click', function(e) {
         e.preventDefault()
     })
 
-    buttonGroup.append(realTimeButton).append(historicalButton)
+    navGroup.append($("<ul></ul>").addClass("nav nav-tabs")
+        .append($("<li></li>").append(realTimeOption))
+        .append($("<li></li>").append(historicalOption))
+    )
+    navGroup.append(
+        $("<div></div>").addClass('tab-content').attr('id', 'viewSuboptions').html("")
+    )
 
     var eventViewOptions = $('<div></div>').addClass('row-fluid')
-    eventViewOptions.append(buttonGroup)
-    eventViewOptions.append(
-        $('<div></div>').addClass('span11 well').attr('id', 'viewSuboptions').html('Do stuff here.')
-    )
+    eventViewOptions.append(navGroup)
 
     $('#eventViewOptions').empty()
     $('#eventViewOptions').append(eventViewOptions)
 
     // Set our real-time or historical button based on what we're loading.
     if(realTime) {
-        realTimeButton.click()
+        realTimeOption.click()
     } else {
-        historicalButton.click()
+        historicalOption.click()
     }
 }
 
@@ -324,7 +337,66 @@ function populateEvents(serverName, events, realTime) {
     }
 }
 
+function addToRecentData(serverName, data) {
+    recentData.unshift({
+        "serverName": serverName,
+        "timestamp": moment().format('X'),
+        "dateTime": moment().format('YYYY-MM-D HH:mm:ss'),
+        "events": data
+    })
+
+    // Get the "recent data" array down to the mximum size if we overflowed it.
+    while(recentData.length > maximumRecentDataAmount) {
+        recentData.pop()
+    }
+}
+
 function redrawRecentDataList() {
+    var historicalContainer = $("<div></div>")
+        .attr("id", "historicalLinks")
+        .addClass("pull-left span11")
+    historicalContainer.append($("<span></span>").html("Recent Data: "))
+
+    var listHolder = $("<ul></ul>").addClass("nav nav-pills")
+
+    for(var i = 0; i < recentData.length; i++) {
+        // If this is the currently selected recent datapoint, draw it as a span and not a link.
+        var listItem = $("<li></li>")
+        var listLink = $("<a></a>")
+            .attr("href", "#")
+            .attr("data-rel", i)
+            .html(recentData[i]["serverName"] + " - " + recentData[i]["dateTime"] + "&nbsp;")
+            .on("click", function(e) {
+                e.preventDefault()
+
+                dataRel = $(this).attr('data-rel')
+
+                // Set this item to the active item.
+                $("#historicalLinks li.active").removeClass("active")
+                $(this).parent().addClass("active")
+
+                // Set the current snapshot to the selected recent snapshot and
+                // redraw the events table.
+                populateEventsTable(recentData[dataRel]["events"])
+
+                // Set the previous timestamp.
+                populateEventsHeader(recentData[dataRel]["serverName"], recentData[dataRel]["timestamp"])
+            })
+
+        // If this is the first item in the list, select it.  If we're ever redrawing the list, it's because
+        // something changed which means we added a new value, and the latest value is always show, and thus
+        // it needs to be selected.
+        if(i == 0) {
+            listItem.addClass("active")
+        }
+
+        listItem.append(listLink)
+        listHolder.append(listItem)
+    }
+
+    historicalContainer.append(listHolder)
+
+    $("#historicalLinks").replaceWith(historicalContainer)
 }
 
 function refreshServerData() {
@@ -351,6 +423,8 @@ function clearEventContent() {
     $('#eventsHeader').empty()
     $('#eventViewOptions').empty()
     $('#eventTable').empty()
+
+    recentData = []
 }
 
 function showErrorMessage(title, message, appends) {

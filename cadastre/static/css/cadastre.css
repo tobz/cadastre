@@ -5,6 +5,7 @@ body { padding-top: 160px }
 .cadastre-control-bar form { margin-top: 15px }
 
 #eventTable thead { font-weight: bold }
+.text-bold { font-weight: bold }
 
 .query-normal { background-color: #a2f5a2 }
 .query-normal:hover { background-color: #8ad48a }
@@ -12,3 +13,9 @@ body { padding-top: 160px }
 .query-locked:hover { background-color: #d6a863 }
 .query-sleeping { background-color: #cccccc }
 .query-sleeping:hover { background-color: #a8a7a7 }
+
+/* Cheap and ugly hack to align the reload button with the recent data pills */
+#viewSuboptions .btn-shiftdown { margin-top: 2px }
+
+#historicalLinks { margin-left: 10px }
+#historicalLinks span { text-shadow: none; margin-right: 5px }
