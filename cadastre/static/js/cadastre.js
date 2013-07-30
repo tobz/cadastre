@@ -341,7 +341,7 @@ function addToRecentData(serverName, data) {
     recentData.unshift({
         "serverName": serverName,
         "timestamp": moment().format('X'),
-        "dateTime": moment().format('YYYY-MM-D HH:mm:ss'),
+        "dateTime": moment().format('HH:mm:ss'),
         "events": data
     })
 
