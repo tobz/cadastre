@@ -5,7 +5,7 @@ import "flag"
 import "os"
 import "os/signal"
 import "time"
-import "cadastre"
+import "github.com/tobz/cadastre"
 
 var (
 	configurationFile = flag.String("config", "", "the path to the Cadastre configuration file to load")
