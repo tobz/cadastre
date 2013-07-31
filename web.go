@@ -14,8 +14,8 @@ import "encoding/base64"
 import "encoding/json"
 import "compress/gzip"
 import "net/http"
-import "github.com/tobz/fsnotify"
-import "github.com/tobz/go-cache"
+import "github.com/howeyc/fsnotify"
+import "github.com/tobz/gocache"
 import "github.com/gorilla/mux"
 
 type WebUI struct {
@@ -23,7 +23,7 @@ type WebUI struct {
 
 	server *http.Server
 
-	templateCache   *cache.Cache
+	templateCache   *gocache.Cache
 	templateWatcher *fsnotify.Watcher
 
 	RequestsServed uint64
@@ -44,7 +44,7 @@ func (me *WebUI) StartListening() error {
 	log.Printf("Instantiating template cache...")
 
 	// Set up our template cache and template watcher.
-	me.templateCache = cache.New((time.Minute * 30), (time.Second * 30))
+	me.templateCache = gocache.New((time.Minute * 30), (time.Second * 30))
 	me.templateWatcher, err = fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("Unable to instantiate template watcher! %s", err)
@@ -56,7 +56,7 @@ func (me *WebUI) StartListening() error {
 			// Something happened in our template directory.  Invalidate the cache.
 			case ev := <-me.templateWatcher.Event:
 				log.Printf("Detected change to template file '%s'.  Flushing template cache.", ev.Name)
-				me.templateCache.Flush()
+				me.templateCache.Clear()
 			}
 		}
 	}()
