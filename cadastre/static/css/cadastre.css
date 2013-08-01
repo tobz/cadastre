@@ -1,10 +1,13 @@
-body { padding-top: 160px }
+body { padding-top: 120px }
 
 .cadastre-control-label { font-weight: bold }
-.cadastre-control-bar { top: 40px }
-.cadastre-control-bar form { margin-top: 15px }
+.cadastre-control-bar form { margin-top: 10px }
+.cadastre-control-bar form { margin-bottom: 0 }
+.cadastre-control-bar div.control-group { margin-bottom: 5px }
+.cadastre-control-bar div.control-group label { margin-bottom: 2px }
 
 #eventTable thead { font-weight: bold }
+#eventTable td.no-results { text-align: center }
 .text-bold { font-weight: bold }
 
 .query-normal { background-color: #a2f5a2 }

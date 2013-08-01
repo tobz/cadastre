@@ -8,22 +8,6 @@
     <link rel="stylesheet" href="/static/css/cadastre.css" />
   </head>
   <body>
-    <div class="navbar navbar-inverse navbar-fixed-top">
-      <div class="navbar-inner">
-        <div class="container">
-          <a class="btn btn-navbar" data-target="nav-collapse" data-toggle="collapse">
-            <span class="icon-bar"></span>
-          </a>
-          <a class="brand" href="#">Cadastre</a>
-          <div class="nav-collapse">
-            <ul class="nav">
-              <li class="active"><a href="#">Home</a></li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Content container. -->
     <div class="navbar navbar-fixed-top cadastre-control-bar">
         <div class="navbar-inner">
@@ -48,7 +32,8 @@
                             <div class="control-group">
                                 <label class="control-label cadastre-control-label">Database</label>
                                 <div class="controls">
-                                    <select id="databaseList" class="span3">
+                                    <select id="databaseList" class="span3 view-filter">
+                                        <option value="*" selected="selected">*</option>
                                     </select>
                                 </div>
                             </div>
@@ -58,17 +43,17 @@
                     <!-- Display options -->
                     <div class="span3 pull-left text-left">
                         <form>
-                            <div id="viewStateControls" class="control-group">
+                            <div class="control-group">
                                 <label class="control-label cadastre-control-label">Query States</label>
                                 <div class="controls">
                                     <label class="checkbox inline">
-                                        <input type="checkbox" id="runningQueries" value="" checked="checked" /> Running
+                                        <input type="checkbox" id="runningQueries" class="view-filter" value="" checked="checked" /> Running
                                     </label>
                                     <label class="checkbox inline">
-                                        <input type="checkbox" id="lockedQueries" value="" checked="checked" /> Locked
+                                        <input type="checkbox" id="lockedQueries" class="view-filter" value="" checked="checked" /> Locked
                                     </label>
                                     <label class="checkbox inline">
-                                        <input type="checkbox" id="sleepingQueries" value="" /> Sleeping
+                                        <input type="checkbox" id="sleepingQueries" class="view-filter" value="" /> Sleeping
                                     </label>
                                 </div>
                             </div>
