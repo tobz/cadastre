@@ -344,18 +344,37 @@ function populateEventsTable(events) {
 
         hadMatchingRows = true
 
-        var eventRow = $('<tr></tr>')
-        eventRow.html(
-            '<td>' + events[i].id + '</td>' +
-            '<td>' + events[i].timeElapsed + '</td>' +
-            '<td>' + events[i].host.substr(0, events[i].host.indexOf(':')) + '</td>' +
-            '<td>' + events[i].user + '</td>' +
-            '<td data-database="' + events[i].database + '">' + events[i].database + '</td>' +
-            '<td>' + events[i].status + '</td>' +
-            '<td>' + events[i].sql + '</td>' +
-            '<td>' + events[i].rowsSent + '</td>' +
-            '<td>' + events[i].rowsExamined + '</td>'
-        )
+        var eventRow = $("<tr></tr>")
+        eventRow.attr("data-index", i)
+
+        eventRow.append($("<td></td>").html(events[i].id))
+        eventRow.append($("<td></td>").html(events[i].timeElapsed))
+        eventRow.append($("<td></td>").html(events[i].host.substr(0, events[i].host.indexOf(':'))))
+        eventRow.append($("<td></td>").html(events[i].user))
+        eventRow.append($("<td></td>").html(events[i].database))
+        eventRow.append($("<td></td>").html(events[i].status))
+
+        var sqlRow = $("<td></td>").html(formatSql(events[i].sql))
+        eventRow.append(sqlRow)
+
+        // Only add the expansion link if the query is going to overflow.
+        if(hasOverflowSql(events[i].sql)) {
+            sqlRow.append(
+                $("<a></a>").html("...").attr("href", "#").on('click', function(e) {
+                    e.preventDefault()
+
+                    var parentCell = $(this).parent()
+                    var parentRow = parentCell.parent()
+
+                    var dataIndex = parseInt(parentRow.attr("data-index"))
+                    var fullSql = currentSnapshot[dataIndex].sql
+
+                    parentCell.html(fullSql)
+                }))
+        }
+
+        eventRow.append($("<td></td>").html(events[i].rowsSent))
+        eventRow.append($("<td></td>").html(events[i].rowsExamined))
 
         // Assign the background color to the row based on the query status.
         if(events[i].status.toLowerCase().indexOf('lock') !== -1) {
@@ -385,6 +404,28 @@ function populateEventsTable(events) {
     // Clear the old events table and put in our new one.
     $('#eventTable').empty()
     $('#eventTable').append(eventTable)
+}
+
+function hasOverflowSql(sql) {
+    var queryLengthLimit = parseInt($("#queryLength").val())
+
+    // -1 indicates that we should be showing full length queries.
+    if(queryLengthLimit == -1) {
+        return false
+    }
+
+    return sql.length > queryLengthLimit
+}
+
+function formatSql(sql) {
+    var queryLengthLimit = parseInt($("#queryLength").val())
+
+    // -1 indicates that we should be showing full length queries.
+    if(queryLengthLimit == -1) {
+        return sql
+    }
+
+    return sql.substr(0, queryLengthLimit)
 }
 
 function redrawEvents() {

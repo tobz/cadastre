@@ -65,7 +65,7 @@
                             <div class="control-group">
                                 <label class="control-label cadastre-control-label">Query Length</label>
                                 <div class="controls">
-                                    <select id="queryLength" class="span2">
+                                    <select id="queryLength" class="span2 view-filter">
                                         <option value="150">150 characters</option>
                                         <option value="350" selected="selected">350 characters</option>
                                         <option value="500">500 characters</option>
