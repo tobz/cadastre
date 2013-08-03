@@ -332,7 +332,6 @@ function populateEventsTable(events) {
         '<td style="width: 60%">SQL</td>' +
         '<td style="width: 1%">Rows Sent</td>' +
         '<td style="width: 1%">Rows Examined</td>' +
-        '<td style="width: 1%">Rows Read</td>' +
         '</tr>'
     )
 
@@ -355,8 +354,7 @@ function populateEventsTable(events) {
             '<td>' + events[i].status + '</td>' +
             '<td>' + events[i].sql + '</td>' +
             '<td>' + events[i].rowsSent + '</td>' +
-            '<td>' + events[i].rowsExamined + '</td>' +
-            '<td>' + events[i].rowsRead + '</td>'
+            '<td>' + events[i].rowsExamined + '</td>'
         )
 
         // Assign the background color to the row based on the query status.
