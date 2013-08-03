@@ -175,7 +175,7 @@ function pullLatestData(serverName, successCallback) {
 
             if(textStatus == "timeout") {
                 title = "Timeout!"
-                message = "We timed out trying to get the most recent process list from the database.  You can try and reload the process list or choose another database server.";
+                message = "We timed out trying to get the most recent process list from the database.  You can try and reload the process list or choose another database server."
             }
 
             if(textStatus == "error") {
@@ -193,8 +193,7 @@ function pullLatestData(serverName, successCallback) {
     })
 }
 
-function populateDatabaseList(events)
-{
+function populateDatabaseList(events) {
     var databases = {}
 
     for(var i = 0; i < events.length; i++) {
@@ -249,6 +248,9 @@ function populateEventViewOptions(realTime) {
             $("#viewSuboptions").append($("<div></div>").attr("id", "historicalLinks"))
 
             redrawRecentDataList()
+
+            // Click on the given active nav link to bring back up the event table.
+            $("#historicalLinks ul.nav li.active a").click()
         })
 
     var historicalOption = $('<a></a>')
@@ -310,12 +312,7 @@ function populateEventViewOptions(realTime) {
     $('#eventViewOptions').empty()
     $('#eventViewOptions').append(eventViewOptions)
 
-    // Set our real-time or historical button based on what we're loading.
-    if(realTime) {
-        realTimeOption.click()
-    } else {
-        historicalOption.click()
-    }
+    realTimeOption.click()
 }
 
 function populateEventsTable(events) {
@@ -476,9 +473,6 @@ function refreshServerData() {
 
     // Get the latest data for the given server.
     pullLatestData(currentServer, function(serverName) {
-        // Clear out the existing event table.
-        clearEventContent(false)
-
         // Populate only the event table itself.
         populateEventsTable(currentSnapshot)
 
@@ -495,8 +489,6 @@ function clearEventContent(clearViewOptions) {
     }
 
     $('#eventTable').empty()
-
-    recentData = []
 }
 
 function showErrorMessage(title, message, appends) {
