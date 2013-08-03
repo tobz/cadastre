@@ -22,7 +22,6 @@ type Event struct {
 	SQL          string `json:"sql"`
 	RowsSent     int64  `json:"rowsSent"`
 	RowsExamined int64  `json:"rowsExamined"`
-	RowsRead     int64  `json:"rowsRead"`
 }
 
 // A collection of events that represent a complete point in time view of the MySQL process list.
@@ -48,7 +47,7 @@ func (me *Snapshot) TakeSnapshot(server Server) error {
 	}
 
 	// Try and get the process list.
-	rows, err := databaseConnection.Query("SHOW FULL PROCESSLIST")
+	rows, err := databaseConnection.Query("SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST")
 	if err != nil {
 		return fmt.Errorf("Caught an error while querying the target MySQL server for the process list! %s", err)
 	}
@@ -59,8 +58,8 @@ func (me *Snapshot) TakeSnapshot(server Server) error {
 		return fmt.Errorf("Caught an error while trying to grab the row columns! %s", err)
 	}
 
-	if len(rowColumns) != 8 && len(rowColumns) != 12 {
-		return fmt.Errorf("Unsupported table format for SHOW FULL PROCESSLIST: expected 8 or 12 columns, got back %d", len(rowColumns))
+	if len(rowColumns) != 8 && len(rowColumns) != 11 && len(rowColumns) != 12 {
+		return fmt.Errorf("Unsupported table format for INFORMATION_SCHEMA.PROCESSLIST: expected 8, 11, or 12 columns, got back %d", len(rowColumns))
 	}
 
 	// Make holders for all the values we might get back.
@@ -75,7 +74,6 @@ func (me *Snapshot) TakeSnapshot(server Server) error {
 	var timeMs int64
 	var rowsExamined int64
 	var rowsSent int64
-	var rowsRead int64
 
 	// Go through each row, converting it to an Event object.
 	for rows.Next() {
@@ -85,15 +83,21 @@ func (me *Snapshot) TakeSnapshot(server Server) error {
 		switch len(rowColumns) {
 		case 12:
 			// This should be results from Percona Server.
-			err = rows.Scan(&eventId, &user, &host, &database, &command, &timeElapsed, &status, &sql, &timeMs, &rowsExamined, &rowsSent, &rowsRead)
+			err = rows.Scan(&eventId, &user, &host, &database, &command, &timeElapsed, &status, &sql, &timeMs, &rowsExamined, &rowsSent)
 			if err != nil {
-				return fmt.Errorf("Caught an error while parsing the response from SHOW FULL PROCESSLIST: %s", err)
+				return fmt.Errorf("Caught an error while parsing the response from INFORMATION_SCHEMA.PROCESSLIST: %s", err)
+			}
+		case 11:
+			// Percona Server 5.6
+			err = rows.Scan(&eventId, &user, &host, &database, &command, &timeElapsed, &status, &sql, &timeMs, &rowsSent, &rowsExamined)
+			if err != nil {
+				return fmt.Errorf("Caught an error while parsing the response from INFORMATION_SCHEMA.PROCESSLIST: %s", err)
 			}
 		case 8:
 			// This should be results from stock MySQL.
 			err = rows.Scan(&eventId, &user, &host, &database, &command, &timeElapsed, &status, &sql)
 			if err != nil {
-				return fmt.Errorf("Caught an error while parsing the response from SHOW FULL PROCESSLIST: %s", err)
+				return fmt.Errorf("Caught an error while parsing the response from INFORMATION_SCHEMA.PROCESSLIST: %s", err)
 			}
 		}
 
@@ -108,10 +112,9 @@ func (me *Snapshot) TakeSnapshot(server Server) error {
 		event.SQL = sql.String
 
 		// If this is Percona Server, pull out the row counts for the query, too.
-		if len(rowColumns) == 12 {
+		if len(rowColumns) == 11 || len(rowColumns) == 12 {
 			event.RowsExamined = rowsExamined
 			event.RowsSent = rowsSent
-			event.RowsRead = rowsRead
 		}
 
 		me.Events = append(me.Events, event)
