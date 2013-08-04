@@ -18,7 +18,10 @@ body { padding-top: 120px }
 .query-sleeping:hover { background-color: #a8a7a7 }
 
 /* Cheap and ugly hack to align the reload button with the recent data pills */
-#viewSuboptions .btn-shiftdown { margin-top: 2px }
+.btn-shiftdown { margin-top: 2px }
 
 #historicalLinks { margin-left: 10px }
 #historicalLinks span { text-shadow: none; margin-right: 5px }
+
+/* Another cheap and ugly hack and force the historical date select box to push itself under its label */
+select.historical-dates { display: block }

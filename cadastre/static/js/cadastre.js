@@ -262,6 +262,9 @@ function populateEventViewOptions(realTime) {
 
             // Clear out the event table.
             clearEventContent(false)
+
+            // Generate thread count graph.
+            generateHistoricalGraph(currentServer)
         })
 
     var navSideBar = $("<ul></ul>").addClass("nav nav-tabs")
@@ -296,6 +299,17 @@ function populateEventViewOptions(realTime) {
     var historicalContainer = $("<div></div>")
         .attr("id", "historicalContainer")
         .addClass("tab-pane")
+
+    historicalContainer.append(
+        $("<div></div>")
+            .addClass("span2")
+            .append($("<span></span>").html("Date: "))
+            .append($("<select></select>").addClass("historical-dates")))
+
+    historicalContainer.append(
+            $("<div></div>")
+                .addClass("span10")
+                .attr("id", "chartArea"))
 
     var navContent = $("<div></div>")
         .addClass("tab-content")
@@ -426,6 +440,9 @@ function formatSql(sql) {
     }
 
     return sql.substr(0, queryLengthLimit)
+}
+
+function generateHistoricalGraph(serverName) {
 }
 
 function redrawEvents() {
