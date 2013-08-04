@@ -76,8 +76,9 @@ func (me *WebUI) StartListening() error {
 
 	// Create our server instance using our request multiplexer.
 	me.server = &http.Server{
-		Addr:    me.Configuration.ListenAddress,
-		Handler: requestMultiplexer,
+		Addr:        me.Configuration.ListenAddress,
+		Handler:     requestMultiplexer,
+		ReadTimeout: time.Second * 30,
 	}
 
 	log.Printf("Configuring request router...")
@@ -198,6 +199,16 @@ func (me *WebUI) serveCurrentSnapshot(response http.ResponseWriter, request *htt
 			return me.renderJson(response, newSnapshot)
 		}
 	}
+
+	// We never found the server, so inform the UI.  This is definitely a bug.
+	return me.renderJsonError(response, fmt.Sprintf("Failed to find server <b>%s</b> in the configured list of servers!", internalName))
+}
+
+func (me *WebUI) servePreviousSnapshot(response http.ResponseWriter, request *http.Request) error {
+	// Get the specified server name and timestamp.
+	requestVars := mux.Vars(request)
+	internalName := requestVars["serverName"]
+	timestamp := requestVars["timestamp"]
 
 	// We never found the server, so inform the UI.  This is definitely a bug.
 	return me.renderJsonError(response, fmt.Sprintf("Failed to find server <b>%s</b> in the configured list of servers!", internalName))
