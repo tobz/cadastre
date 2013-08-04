@@ -5,6 +5,7 @@ import "log"
 import "os"
 import "io"
 import "strings"
+import "strconv"
 import "sync/atomic"
 import "time"
 import "bytes"
@@ -88,6 +89,7 @@ func (me *WebUI) StartListening() error {
 	requestMultiplexer.Handle("/", CadastreHandler(me, me.serveIndex))
 	requestMultiplexer.Handle("/_getServerGroups", CadastreHandler(me, me.serveServerGroups))
 	requestMultiplexer.Handle("/_getCurrentSnapshot/{serverName}", CadastreHandler(me, me.serveCurrentSnapshot))
+	requestMultiplexer.Handle("/_getPreviousSnapshot/{serverName}/{timestamp}", CadastreHandler(me, me.servePreviousSnapshot))
 
 	absStaticAssetPath, err := filepath.Abs(me.Configuration.StaticAssetDirectory)
 	if err != nil {
@@ -208,10 +210,24 @@ func (me *WebUI) servePreviousSnapshot(response http.ResponseWriter, request *ht
 	// Get the specified server name and timestamp.
 	requestVars := mux.Vars(request)
 	internalName := requestVars["serverName"]
-	timestamp := requestVars["timestamp"]
+	timestampRaw := requestVars["timestamp"]
 
-	// We never found the server, so inform the UI.  This is definitely a bug.
-	return me.renderJsonError(response, fmt.Sprintf("Failed to find server <b>%s</b> in the configured list of servers!", internalName))
+	// Make sure the timestamp is valid and convert it to a Time object.
+	timestamp, err := strconv.ParseInt(timestampRaw, 10, 64)
+	if err != nil {
+		return me.renderJsonError(response, fmt.Sprintf("The given timestamp is not a valid Unix timestamp! Timestamp given: %s", timestampRaw))
+	}
+
+	timestampTime := time.Unix(timestamp, 0)
+
+	// Try and get a snapshot for the given time period.
+	snapshot, err := me.Configuration.Storage.Retrieve(internalName, timestampTime)
+	if err != nil {
+		return me.renderJsonError(response, fmt.Sprintf("Failed to get a snapshot for the requested timestamp! %s", err.Error()))
+	}
+
+	// We got our snapshot, so return it.
+	return me.renderJson(response, snapshot)
 }
 
 func (me *WebUI) renderJson(response http.ResponseWriter, data interface{}) error {

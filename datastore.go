@@ -8,14 +8,9 @@ type DataStore interface {
 	// background workers, etc.
 	Initialize() error
 
-	// Retrieve the latest snapshot for the given identifier (host).  If no data could be found, or
-	// an error occured, the return value will be nil and the error will indicate what went wrong.
-	RetrieveLatest(identifier string) (*Snapshot, error)
-
-	// Retrieve any snapshots for the given identifier (host) that occured between the specified start
-	// and end time.  If no data could be found, or an error occured, the return value will be nil and
-	// the error will indicate what went wrong.
-	RetrieveRange(identifier string, start time.Time, end time.Time) (map[time.Time]*Snapshot, error)
+	// Retrieve the snapsot for the given timestamp.  Returns nil if the snapshot for the given
+	// timestamp can't be found, and an error if any errors were encountered.
+	Retrieve(identifier string, timestamp time.Time) (*Snapshot, error)
 
 	// Persists a snapshot for the given identifier to the underlying storage engine.
 	Persist(identifier string, timestamp time.Time, value *Snapshot) error

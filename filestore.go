@@ -6,157 +6,72 @@ import "fmt"
 import "log"
 import "path/filepath"
 import "bufio"
-import "regexp"
 import "strings"
 
 type FileStore struct {
-	DataDirectory   string
+	DataDirectory    string
+	absDataDirectory string
+
 	RetentionPeriod time.Duration
 }
 
 func (me *FileStore) Initialize() error {
-	return nil
-}
-
-func (me *FileStore) RetrieveLatest(identifier string) (*Snapshot, error) {
-	// Compile a regexp right quick so we can quickly match potential directories.
-	dateRegexp, err := regexp.Compile("^\\d{4}-\\d{2}-\\d{2}$")
-	if err != nil {
-		return nil, fmt.Errorf("Failed to compile regular expression for matching data directories! %s", err)
-	}
-
-	datetimeRegexp, err := regexp.Compile("^\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}$")
-	if err != nil {
-		return nil, fmt.Errorf("Failed to compile regular expression for matching data files! %s", err)
-	}
-
 	// Make sure our data directory is a qualified, absolute path.
 	absDataDirectory, err := filepath.Abs(me.DataDirectory)
 	if err != nil {
-		return nil, fmt.Errorf("Error normalizing the data directory path! %s", err)
+		return fmt.Errorf("Error normalizing the data directory path! %s", err)
 	}
 
-	// First, we need to find the top level time bucket so we can delve in.
-	var latestTopLevelDirectory string
-	filepath.Walk(absDataDirectory, func(path string, info os.FileInfo, _ error) error {
-		// See if this is a directory and if it has a subdirectory for our identifier.
-		if !info.IsDir() || !doesDirectoryExist(filepath.Join(path, identifier)) {
-			return nil
-		}
+	me.absDataDirectory = absDataDirectory
 
-		baseDirectory := filepath.Dir(path)
+	return nil
+}
 
-		// Make sure this directory matches the YYYY-MM-DD format.
-		if !dateRegexp.MatchString(baseDirectory) {
-			return nil
-		}
+func (me *FileStore) Retrieve(identifier string, timestamp time.Time) (*Snapshot, error) {
+	// First, parse our timestamp into YYYY-MM-DD and then YYYY-MM-DD-hh-mm-ss so we can build a filepath to try and access.
+	baseDirectoryName := timestamp.Format("2006-01-02")
+	snapshotFileName := timestamp.Format("2006-01-02-15-04-05") + ".spl"
 
-		baseDirectoryTime, err := time.Parse("2006-01-02", baseDirectory)
-		if err == nil {
-			// The directory matched, so now see if we need to compare to a previously-discovered directory.
-			if latestTopLevelDirectory == "" {
-				// This is the first directory we've seen, so it is now our latest.
-				latestTopLevelDirectory = baseDirectory
-			} else {
-				// See if the value we just got is newer than the latest value we have.
-				latestDirectoryTime, err := time.Parse("2006-01-02", latestTopLevelDirectory)
-				if err != nil {
-					if baseDirectoryTime.After(latestDirectoryTime) {
-						latestTopLevelDirectory = baseDirectory
-					}
-				} else {
-					// We had an error, so this is our new latest directory.
-					latestTopLevelDirectory = baseDirectory
-				}
-			}
-		}
+	finalDirectoryPath := filepath.Join(me.absDataDirectory, baseDirectoryName, identifier)
 
-		return nil
-	})
-
-	// See if we actually found a viable top-level directory in our search.
-	if latestTopLevelDirectory == "" {
+	// See if the directory pointed to by this timestamp actually exists.
+	if !doesDirectoryExist(finalDirectoryPath) {
 		// We didn't find anything.... that's weird.  Maybe we only just started?  In any case, it could
 		// be a case of legitimately having no data, so just return nil.
 		return nil, fmt.Errorf("No data available for the given time period.")
 	}
 
-	// Now let's find the newest file for our identifier under the latest top-level directory.
-	latestIdentifierDirectory := filepath.Join(absDataDirectory, latestTopLevelDirectory, identifier)
+	finalFilePath := filepath.Join(finalDirectoryPath, snapshotFileName)
 
-	var latestDataFile string
-	filepath.Walk(latestIdentifierDirectory, func(path string, info os.FileInfo, _ error) error {
-		// We're only looking for .spl files here, so skip directories and non-spl files.
-		if info.IsDir() || filepath.Ext(path) != ".spl" {
-			return nil
-		}
-
-		baseFile := filepath.Base(path)
-		baseFileNoExt := getFileWithoutExtension(baseFile)
-
-		// Make sure this file matches our file naming format of YYYY-MM-DD-hh-mm-ss.
-		if !datetimeRegexp.MatchString(baseFileNoExt) {
-			return nil
-		}
-
-		// Parse our filename into a datetime so we can figure out if we have the latest file.
-		baseFileTime, err := time.Parse("2006-01-02-15-04-05", baseFileNoExt)
-		if err != nil {
-			return nil
-		}
-
-		// Compare the current file with the latest file we know about.
-		if latestDataFile == "" {
-			// Looks like this is the first file we've seen.  It's now our latest.
-			latestDataFile = baseFile
-		} else {
-			latestDataFileTime, err := time.Parse("2006-01-02-15-04-05", getFileWithoutExtension(latestDataFile))
-			if err != nil {
-				// Looks like we had an error parsing the file for the latest file, so the current is now our latest.
-				latestDataFile = baseFile
-			} else {
-				// See if our current file is newer than the latest we know about.
-				if baseFileTime.After(latestDataFileTime) {
-					// It's newer, so it is now our latest.
-					latestDataFile = baseFile
-				}
-			}
-		}
-
-		return nil
-	})
-
-	// Make sure we found something in that last search.
-	if latestDataFile == "" {
+	// Now see if the file is there.
+	if !doesFileExist(finalFilePath) {
+		// Well that's weird, but again, this could be an erroneous request and the timestamp could
+		// be in the future or the client could be buggy or whatever.  Just return nil.
 		return nil, fmt.Errorf("No data available for the given time period.")
 	}
 
-	// We have our latest data file now, so let's open our data file and give the snapshot a reader to deserialize itself from.
-	latestDataFileHandle, err := os.Open(latestDataFile)
+	// Let's open our data file and give the snapshot a reader to deserialize itself from.
+	snapshotFileHandle, err := os.Open(finalFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get a file handle to our latest data file! %s", err)
 	}
 
 	// Create an I/O reader buffer to pass to the snapshot when we ask it to unserialize itself.
-	latestDataFileReader := bufio.NewReader(latestDataFileHandle)
+	snapshotFileReader := bufio.NewReader(snapshotFileHandle)
 
 	defer func() {
-		if err := latestDataFileHandle.Close(); err != nil {
-			log.Fatalf("Failed to close the file handle for '%s'! %s", latestDataFile, err)
+		if err := snapshotFileHandle.Close(); err != nil {
+			log.Fatalf("Failed to close the file handle for '%s'! %s", finalFilePath, err)
 		}
 	}()
 
 	// Ask for a snapshot back.
-	latestSnapshot, err := NewSnapshotFromReader(latestDataFileReader)
+	snapshot, err := NewSnapshotFromReader(snapshotFileReader)
 	if err != nil {
 		return nil, err
 	}
 
-	return latestSnapshot, nil
-}
-
-func (me *FileStore) RetrieveRange(identifier string, start time.Time, end time.Time) (map[time.Time]*Snapshot, error) {
-	return nil, nil
+	return snapshot, nil
 }
 
 func (me *FileStore) Persist(identifier string, timestamp time.Time, value *Snapshot) error {
@@ -164,10 +79,7 @@ func (me *FileStore) Persist(identifier string, timestamp time.Time, value *Snap
 	topLevelTime := timestamp.Format("2006-01-02")
 	lowLevelTime := timestamp.Format("2006-01-02-15-04-05")
 
-	targetDirectory, err := filepath.Abs(filepath.Join(me.DataDirectory, topLevelTime, identifier))
-	if err != nil {
-		return fmt.Errorf("Encountered an error trying to figure out the data directory! %s", err)
-	}
+	targetDirectory := filepath.Join(me.absDataDirectory, topLevelTime, identifier)
 
 	if err := createDirectoryIfNotExists(targetDirectory); err != nil {
 		return fmt.Errorf("Failed to create the directory to store a process list snapshot! Identifier: %s, Error: %s", identifier, err)
@@ -221,6 +133,14 @@ func createDirectoryIfNotExists(path string) error {
 
 func doesDirectoryExist(path string) bool {
 	if stat, _ := os.Stat(path); stat != nil && stat.IsDir() {
+		return true
+	}
+
+	return false
+}
+
+func doesFileExist(path string) bool {
+	if stat, _ := os.Stat(path); stat != nil && !stat.IsDir() {
 		return true
 	}
 
