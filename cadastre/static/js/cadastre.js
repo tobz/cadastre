@@ -309,7 +309,7 @@ function populateEventViewOptions(realTime) {
     historicalContainer.append(
             $("<div></div>")
                 .addClass("span10")
-                .attr("id", "chartArea"))
+                .attr("id", "graphArea"))
 
     var navContent = $("<div></div>")
         .addClass("tab-content")
@@ -443,6 +443,64 @@ function formatSql(sql) {
 }
 
 function generateHistoricalGraph(serverName) {
+    $.ajax("/_getGraphData/" + serverName + "/20130806", {
+        success: function(data, statusCode, xhr) {
+            if(data.success && data.payload.counts) {
+                var graph = new Rickshaw.Graph({
+                    element: document.getElementById("graphArea"),
+                    height: 150,
+                    min: 0,
+                    max: 2,
+                    renderer: "line",
+                    series: [{
+                        color: "black",
+                        name: serverName,
+                        data: data.payload.counts
+                    }]
+                })
+
+                graph.render()
+
+                var Hover = Rickshaw.Class.create(Rickshaw.Graph.HoverDetail, {
+                    render: function(args) {},
+                    _addListeners: function() {
+                        this.graph.element.addEventListener(
+                            'mousemove',
+                            function(e) {
+                                this.visible = true
+                                this.update(e)
+                            }.bind(this),
+                            false
+                        )
+
+                        this.graph.element.addEventListener(
+                            'click',
+                            function(e) {
+                            }.bind(this),
+                            false
+                        )
+
+                        this.graph.onUpdate( function() { this.update() }.bind(this) )
+
+                        this.graph.element.addEventListener(
+                            'mouseout',
+                            function(e) {
+                                if (e.relatedTarget && !(e.relatedTarget.compareDocumentPosition(this.graph.element) & Node.DOCUMENT_POSITION_CONTAINS)) {
+                                    this.hide()
+                                }
+                            }.bind(this),
+                            false
+                        )
+                    }
+                })
+
+                var hoverDetail = new Hover({ graph: graph })
+
+                var axes = new Rickshaw.Graph.Axis.Time({ graph: graph })
+                axes.render()
+            }
+        }
+    })
 }
 
 function redrawEvents() {

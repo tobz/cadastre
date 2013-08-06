@@ -5,6 +5,8 @@ import "flag"
 import "os"
 import "os/signal"
 import "time"
+import "net/http"
+import _ "net/http/pprof"
 import "github.com/tobz/cadastre"
 
 var (
@@ -57,6 +59,11 @@ func main() {
 	signal.Notify(sig, os.Interrupt)
 
 	debugTick := time.Tick(time.Second * 5)
+
+    // If we're in debug mode, start the pprof debug HTTP endpoint.
+    go func() {
+        log.Println(http.ListenAndServe("localhost:6060", nil))
+    }()
 
 	for {
 		select {

@@ -90,6 +90,7 @@ func (me *WebUI) StartListening() error {
 	requestMultiplexer.Handle("/_getServerGroups", CadastreHandler(me, me.serveServerGroups))
 	requestMultiplexer.Handle("/_getCurrentSnapshot/{serverName}", CadastreHandler(me, me.serveCurrentSnapshot))
 	requestMultiplexer.Handle("/_getPreviousSnapshot/{serverName}/{timestamp}", CadastreHandler(me, me.servePreviousSnapshot))
+	requestMultiplexer.Handle("/_getGraphData/{serverName}/{datestamp}", CadastreHandler(me, me.serveGraphData))
 
 	absStaticAssetPath, err := filepath.Abs(me.Configuration.StaticAssetDirectory)
 	if err != nil {
@@ -215,19 +216,41 @@ func (me *WebUI) servePreviousSnapshot(response http.ResponseWriter, request *ht
 	// Make sure the timestamp is valid and convert it to a Time object.
 	timestamp, err := strconv.ParseInt(timestampRaw, 10, 64)
 	if err != nil {
-		return me.renderJsonError(response, fmt.Sprintf("The given timestamp is not a valid Unix timestamp! Timestamp given: %s", timestampRaw))
+		return me.renderJsonError(response, fmt.Sprintf("The given timestamp is not valid! Timestamp given: %s", timestampRaw))
 	}
 
 	timestampTime := time.Unix(timestamp, 0)
 
 	// Try and get a snapshot for the given time period.
-	snapshot, err := me.Configuration.Storage.Retrieve(internalName, timestampTime)
+	snapshot, err := me.Configuration.Storage.RetrieveSnapshot(internalName, timestampTime)
 	if err != nil {
 		return me.renderJsonError(response, fmt.Sprintf("Failed to get a snapshot for the requested timestamp! %s", err.Error()))
 	}
 
 	// We got our snapshot, so return it.
 	return me.renderJson(response, snapshot)
+}
+
+func (me *WebUI) serveGraphData(response http.ResponseWriter, request *http.Request) error {
+	// Get the specified server name and datestamp.
+	requestVars := mux.Vars(request)
+	internalName := requestVars["serverName"]
+	datestampRaw := requestVars["datestamp"]
+
+	// Make sure the timestamp is valid and convert it to a Time object.
+	datestamp, err := time.Parse("20060102", datestampRaw)
+	if err != nil {
+		return me.renderJsonError(response, fmt.Sprintf("The given datestamp is not valid! Datestamp given: %s", datestampRaw))
+	}
+
+	// Try and get the counts for the requested time period.
+	counts, err := me.Configuration.Storage.RetrieveCounts(internalName, datestamp)
+	if err != nil {
+		return me.renderJsonError(response, fmt.Sprintf("Failed to get counts for the requested datestamp! %s", err.Error()))
+	}
+
+	// We got our counts, so return 'em.
+	return me.renderJson(response, counts)
 }
 
 func (me *WebUI) renderJson(response http.ResponseWriter, data interface{}) error {

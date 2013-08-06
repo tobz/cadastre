@@ -3,6 +3,7 @@ package cadastre
 import "fmt"
 import "io"
 import "bytes"
+import "time"
 import "encoding/json"
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
@@ -24,9 +25,21 @@ type Event struct {
 	RowsExamined int64  `json:"rowsExamined"`
 }
 
-// A collection of events that represent a complete point in time view of the MySQL process list.
+// A collection of events that represent a complete point-in-time view of the MySQL process list.
 type Snapshot struct {
-	Events []Event `json:"events"`
+	Timestamp int64   `json:"timestamp"`
+	Events    []Event `json:"events"`
+}
+
+// Represents the number of threads running/executing/whatever at a given time.
+type Count struct {
+	Timestamp   int64 `json:"x"`
+	ThreadCount int64 `json:"y"`
+}
+
+// Represents a series of counts.
+type Counts struct {
+	Counts []Count `json:"counts"`
 }
 
 func (me *Snapshot) TakeSnapshot(server Server) error {
@@ -51,6 +64,9 @@ func (me *Snapshot) TakeSnapshot(server Server) error {
 	if err != nil {
 		return fmt.Errorf("Caught an error while querying the target MySQL server for the process list! %s", err)
 	}
+
+	// Set our timestamp.
+	me.Timestamp = time.Now().Unix()
 
 	// Get the column list returned for this query.
 	rowColumns, err := rows.Columns()
@@ -121,6 +137,10 @@ func (me *Snapshot) TakeSnapshot(server Server) error {
 	}
 
 	return nil
+}
+
+func (me *Snapshot) GetCount() Count {
+	return Count{Timestamp: me.Timestamp, ThreadCount: int64(len(me.Events))}
 }
 
 func (me *Snapshot) WriteTo(w io.Writer) error {

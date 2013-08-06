@@ -34,13 +34,12 @@ func (me *Fetcher) Start() error {
 				break
 			}
 
-			snapshotTimestamp := time.Now()
 			snapshot := &Snapshot{}
 			if err := snapshot.TakeSnapshot(server); err != nil {
 				log.Printf("error: failed to take snapshot for host '%s'! %s", server.InternalName, err)
 			} else {
 				// Persist it to our datastore.
-				me.Configuration.Storage.Persist(server.InternalName, snapshotTimestamp, snapshot)
+				me.Configuration.Storage.Persist(server.InternalName, snapshot)
 			}
 		}
 

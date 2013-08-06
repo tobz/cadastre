@@ -4,6 +4,7 @@ import "os"
 import "time"
 import "fmt"
 import "log"
+import "regexp"
 import "path/filepath"
 import "bufio"
 import "strings"
@@ -27,7 +28,7 @@ func (me *FileStore) Initialize() error {
 	return nil
 }
 
-func (me *FileStore) Retrieve(identifier string, timestamp time.Time) (*Snapshot, error) {
+func (me *FileStore) RetrieveSnapshot(identifier string, timestamp time.Time) (*Snapshot, error) {
 	// First, parse our timestamp into YYYY-MM-DD and then YYYY-MM-DD-hh-mm-ss so we can build a filepath to try and access.
 	baseDirectoryName := timestamp.Format("2006-01-02")
 	snapshotFileName := timestamp.Format("2006-01-02-15-04-05") + ".spl"
@@ -50,31 +51,55 @@ func (me *FileStore) Retrieve(identifier string, timestamp time.Time) (*Snapshot
 		return nil, fmt.Errorf("No data available for the given time period.")
 	}
 
-	// Let's open our data file and give the snapshot a reader to deserialize itself from.
-	snapshotFileHandle, err := os.Open(finalFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get a file handle to our latest data file! %s", err)
-	}
-
-	// Create an I/O reader buffer to pass to the snapshot when we ask it to unserialize itself.
-	snapshotFileReader := bufio.NewReader(snapshotFileHandle)
-
-	defer func() {
-		if err := snapshotFileHandle.Close(); err != nil {
-			log.Fatalf("Failed to close the file handle for '%s'! %s", finalFilePath, err)
-		}
-	}()
-
-	// Ask for a snapshot back.
-	snapshot, err := NewSnapshotFromReader(snapshotFileReader)
-	if err != nil {
-		return nil, err
-	}
-
-	return snapshot, nil
+	return hydrateSnapshotFromFile(finalFilePath)
 }
 
-func (me *FileStore) Persist(identifier string, timestamp time.Time, value *Snapshot) error {
+func (me *FileStore) RetrieveCounts(identifier string, datestamp time.Time) (*Counts, error) {
+	counts := make([]Count, 0)
+
+	// First, parse our datestamp into YYYY-MM-DD so we can build a filepath to try and access.
+	baseDirectoryName := datestamp.Format("2006-01-02")
+
+	finalDirectoryPath := filepath.Join(me.absDataDirectory, baseDirectoryName, identifier)
+
+	// See if the directory pointed to by this datestamp actually exists.
+	if !doesDirectoryExist(finalDirectoryPath) {
+		// We didn't find anything.... that's weird.  Maybe we only just started?  In any case, it could
+		// be a case of legitimately having no data, so just return nil.
+		return nil, fmt.Errorf("No data available for the given time period.")
+	}
+
+	splFileRegexp := regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}\\.spl$")
+
+	// Now we gotta walk all the files in the directory to grab the counts.
+	filepath.Walk(finalDirectoryPath, func(path string, info os.FileInfo, _ error) error {
+		// We're only looking for files.
+		if info.IsDir() {
+			return nil
+		}
+
+		// See if the filename matches our single snapshot naming scheme.
+		if splFileRegexp.MatchString(filepath.Base(path)) {
+			// We should have a legitimate SPL file here, so hydrate it and get the count.
+			snapshot, err := hydrateSnapshotFromFile(path)
+			if err != nil {
+				// Nothing to do here.  Move on to the next one.
+				return nil
+			}
+
+			// Add this count to the rest.
+			counts = append(counts, snapshot.GetCount())
+		}
+
+		return nil
+	})
+
+	return &Counts{Counts: counts}, nil
+}
+
+func (me *FileStore) Persist(identifier string, value *Snapshot) error {
+	timestamp := time.Unix(value.Timestamp, 0)
+
 	// Make sure the folder exists for our identifier, and within that, today's date.  Create either if they don't exist.
 	topLevelTime := timestamp.Format("2006-01-02")
 	lowLevelTime := timestamp.Format("2006-01-02-15-04-05")
@@ -147,7 +172,32 @@ func doesFileExist(path string) bool {
 	return false
 }
 
-func getFileWithoutExtension(file string) string {
-	baseFile := filepath.Base(file)
+func getFileWithoutExtension(filename string) string {
+	baseFile := filepath.Base(filename)
 	return strings.Replace(baseFile, filepath.Ext(baseFile), "", -1)
+}
+
+func hydrateSnapshotFromFile(path string) (*Snapshot, error) {
+	// Let's open the data file and give the snapshot a reader to deserialize itself from.
+	snapshotFileHandle, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get a file handle to our latest data file! %s", err)
+	}
+
+	// Create an I/O reader buffer to pass to the snapshot when we ask it to unserialize itself.
+	snapshotFileReader := bufio.NewReader(snapshotFileHandle)
+
+	defer func() {
+		if err := snapshotFileHandle.Close(); err != nil {
+			log.Fatalf("Failed to close the file handle for '%s'! %s", path, err)
+		}
+	}()
+
+	// Ask for a snapshot back.
+	snapshot, err := NewSnapshotFromReader(snapshotFileReader)
+	if err != nil {
+		return nil, err
+	}
+
+	return snapshot, nil
 }
