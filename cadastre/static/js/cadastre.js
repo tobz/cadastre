@@ -443,15 +443,20 @@ function formatSql(sql) {
 }
 
 function generateHistoricalGraph(serverName) {
-    $.ajax("/_getGraphData/" + serverName + "/20130806", {
+    // Grab the latest data and draw a new graph.
+    $.ajax("/_getGraphData/" + serverName + "/20130807", {
         success: function(data, statusCode, xhr) {
             if(data.success && data.payload.counts) {
+                // Clear out any old graph stuff in there.
+                $("#graphArea").empty()
+
                 var graph = new Rickshaw.Graph({
                     element: document.getElementById("graphArea"),
-                    height: 150,
-                    min: 0,
+                    height: 80,
+                    min: 0.5,
                     max: 2,
                     renderer: "line",
+                    strokeWidth: 1,
                     series: [{
                         color: "black",
                         name: serverName,
@@ -462,35 +467,118 @@ function generateHistoricalGraph(serverName) {
                 graph.render()
 
                 var Hover = Rickshaw.Class.create(Rickshaw.Graph.HoverDetail, {
+                    update: function(e) {
+                        var start = window.performance.now()
+
+                        e = e || this.lastEvent;
+                        if(!e)
+                            return;
+
+                        this.lastEvent = e;
+
+                        if(!e.target.nodeName.match(/^(path|svg|rect|circle)$/))
+                            return;
+
+                        var graph = this.graph;
+
+                        var eventX = e.offsetX || e.layerX;
+                        var eventY = e.offsetY || e.layerY;
+
+                        var j = 0;
+                        var nearestPoint;
+
+                        this.graph.series.active().forEach(function(series) {
+                            var data = this.graph.stackedData[j++];
+
+                            if(!data.length)
+                                return;
+
+                            var domainX = graph.x.invert(eventX);
+
+                            var domainIndexScale = d3.scale.linear()
+                                .domain([data[0].x, data.slice(-1)[0].x])
+                                .range([0, data.length - 1]);
+
+                            var approximateIndex = Math.round(domainIndexScale(domainX));
+                            if(approximateIndex == data.length - 1) {
+                                approximateIndex--;
+                            }
+
+                            var dataIndex = Math.min(approximateIndex || 0, data.length - 1);
+
+                            for(var i = approximateIndex; i < data.length - 1;) {
+
+                                if(!data[i] || !data[i + 1])
+                                    break;
+
+                                if(data[i].x <= domainX && data[i + 1].x > domainX) {
+                                    dataIndex = Math.abs(domainX - data[i].x) < Math.abs(domainX - data[i + 1].x) ? i : i + 1;
+                                    break;
+                                }
+
+                                if(data[i + 1].x <= domainX) {
+                                    i++
+                                } else {
+                                    i--
+                                }
+                            }
+
+                            if(dataIndex < 0) {
+                                dataIndex = 0;
+                            }
+
+                            var value = data[dataIndex];
+
+                            var distance = Math.sqrt(
+                                Math.pow(Math.abs(graph.x(value.x) - eventX), 2) +
+                                Math.pow(Math.abs(graph.y(value.y + value.y0) - eventY), 2)
+                            );
+
+                            // If this point is closer than previous points, it's our new closest point.
+                            var point = { series: series, value: value, distance: distance };
+                            if(!nearestPoint || distance < nearestPoint.distance) {
+                                nearestPoint = point;
+                            }
+
+                        }, this );
+
+                        if(!nearestPoint)
+                            return;
+
+                        // Set our currently-hovered X value.
+                        this.currentDomainX = nearestPoint.value.x;
+
+                        if(this.visible) {
+                            if(nearestPoint.value.y === null)
+                                return;
+
+                            // Render the remaining elements if this is the first update.
+                            if(!this.rendered) {
+                                this.dot = document.createElement('div');
+
+                                this.dot.className = 'dot active';
+                                this.dot.style.borderColor = nearestPoint.series.color;
+
+                                this.element.appendChild(this.dot)
+
+                                this.rendered = true
+                            }
+
+                            // Move our detail line along the X axis and our dot along the Y axis.
+                            this.element.style.left = this.graph.x(nearestPoint.value.x) + 'px';
+                            this.dot.style.top = this.graph.y(nearestPoint.value.y0 + nearestPoint.value.y) + 'px';
+                        }
+
+                        console.log("update time: " + (window.performance.now() - start))
+                    },
                     render: function(args) {},
                     _addListeners: function() {
-                        this.graph.element.addEventListener(
-                            'mousemove',
-                            function(e) {
-                                this.visible = true
-                                this.update(e)
-                            }.bind(this),
-                            false
-                        )
-
-                        this.graph.element.addEventListener(
-                            'click',
-                            function(e) {
-                            }.bind(this),
-                            false
-                        )
+                        this.graph.element.addEventListener('mousemove', function(e) { this.update(e) }.bind(this), false)
+                        this.graph.element.addEventListener('click', function(e) { alert(this.currentDomainX) }.bind(this), false)
+                        this.graph.element.addEventListener('mouseover', function(e) { this.show() }.bind(this), false)
+                        this.graph.element.addEventListener('mouseout', function(e) { this.hide() }.bind(this), false)
 
                         this.graph.onUpdate( function() { this.update() }.bind(this) )
-
-                        this.graph.element.addEventListener(
-                            'mouseout',
-                            function(e) {
-                                if (e.relatedTarget && !(e.relatedTarget.compareDocumentPosition(this.graph.element) & Node.DOCUMENT_POSITION_CONTAINS)) {
-                                    this.hide()
-                                }
-                            }.bind(this),
-                            false
-                        )
                     }
                 })
 
